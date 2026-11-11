@@ -64,6 +64,11 @@
   .favrow .check { margin:2px 4px 0; font-weight:400; }
   .hero { display:block; max-width:220px; width:60%; margin:0 auto 20px; border-radius:8px; }
   .crumbs { display:flex; flex-wrap:wrap; gap:6px; margin:14px 0; }
+  .note { border:1px solid var(--line); border-inline-start:4px solid var(--gold); border-radius:8px; padding:12px 14px; margin:10px 0; }
+  .note blockquote { margin:0 0 6px; color:var(--muted); font-style:italic; }
+  .note p { margin:0 0 6px; white-space:pre-wrap; }
+  .nform > * { margin-top:8px; }
+  .nform .primary { width:auto; padding:8px 22px; }
   [hidden] { display:none !important; }
 </style>
 </head>
@@ -137,9 +142,9 @@
     <div id="favList"></div>
     <p id="favMsg" class="msg" role="status"></p>
 
-    <h2 class="sec">שיתוף המועדפים שלי</h2>
+    <h2 class="sec">שיתוף עם אחרים</h2>
     <div class="card">
-      <p class="muted">רק תכנים שסימנת “לשתף את התוכן הזה” ברשימת המועדפים למעלה יהיו גלויים לאחרים.</p>
+      <p class="muted">רק מה שסימנת לשיתוף (תכנים במועדפים והערות) יהיה גלוי לאחרים.</p>
       <label class="check"><input type="checkbox" id="pubToggle"> שיתוף עם כל המשתמשים באתר</label>
       <h3 class="sub">שיתוף עם משתמשים מסוימים</h3>
       <form id="userSearchForm" class="inline">
@@ -428,6 +433,9 @@
       }
     }
     (data.body || "").split(/\n{2,}/).filter(Boolean).forEach((p) => box.append(h("p", "body", p)));
+    const nb = h("div");
+    box.append(nb);
+    renderNotes(nb, id);
   }
   $("backBtn").onclick = () => show("libraryView");
 
@@ -542,6 +550,79 @@
     say($("profileMsg"), "השינויים נשמרו.", "ok");
     setHello($("pName").value.trim());
   });
+
+  /* ---------- הערות ---------- */
+  function noteRow(n, who, mineRow, redraw) {
+    const el = h("div", "note");
+    if (n.quote) el.append(h("blockquote", null, n.quote));
+    el.append(h("p", null, n.body));
+    el.append(h("div", "meta", (who ? "מאת " + who + ", " : "") + new Date(n.created_at).toLocaleDateString("he-IL")));
+    if (mineRow) {
+      const lab = h("label", "check");
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = !!n.shared;
+      cb.onchange = async () => {
+        const { error } = await db.from("notes").update({ shared: cb.checked }).eq("id", n.id);
+        if (error) cb.checked = !cb.checked;
+      };
+      lab.append(cb, document.createTextNode(" משותפת"));
+      const d = h("button", "del", "מחיקה");
+      d.type = "button";
+      d.onclick = async () => {
+        if (!confirm("למחוק את ההערה?")) return;
+        const { error } = await db.from("notes").delete().eq("id", n.id);
+        if (!error) redraw();
+      };
+      el.append(lab, d);
+    }
+    return el;
+  }
+
+  async function renderNotes(box, itemId) {
+    box.replaceChildren(h("h3", "sub", "הערות"));
+    const { data, error } = await db.from("notes").select("id,user_id,quote,body,shared,created_at").eq("item_id", itemId).order("created_at");
+    if (error) { box.append(h("p", "msg error", "לא הצלחנו לטעון את ההערות.")); return; }
+    const redraw = () => renderNotes(box, itemId);
+    const form = h("form", "nform");
+    const sel = h("button", "small", "הערה על הטקסט המסומן");
+    sel.type = "button";
+    sel.onmousedown = (e) => e.preventDefault();
+    const quote = document.createElement("input");
+    quote.placeholder = "ציטוט או מיקום, למשל עמוד 3 (אופציונלי)";
+    quote.setAttribute("aria-label", "ציטוט או מיקום");
+    const body = document.createElement("textarea");
+    body.placeholder = "ההערה שלי";
+    body.required = true;
+    body.setAttribute("aria-label", "ההערה");
+    sel.onclick = () => {
+      const t = String(window.getSelection()).trim();
+      if (t) { quote.value = t.slice(0, 300); body.focus(); }
+    };
+    const lab = h("label", "check");
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    lab.append(cb, document.createTextNode(" לשתף את ההערה"));
+    const add = h("button", "primary", "הוספת הערה");
+    add.type = "submit";
+    form.append(sel, quote, body, lab, add);
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      add.disabled = true;
+      const { error: err } = await db.from("notes").insert({ user_id: me.id, item_id: itemId, quote: quote.value.trim() || null, body: body.value.trim(), shared: cb.checked });
+      add.disabled = false;
+      if (!err) redraw();
+    };
+    box.append(form);
+    data.filter((n) => n.user_id === me.id).forEach((n) => box.append(noteRow(n, null, true, redraw)));
+    const others = data.filter((n) => n.user_id !== me.id);
+    if (others.length) {
+      const { data: ps } = await db.from("profiles").select("id,full_name").in("id", [...new Set(others.map((n) => n.user_id))]);
+      const nm = Object.fromEntries((ps || []).map((x) => [x.id, x.full_name || "משתמש"]));
+      box.append(h("h3", "sub", "הערות ששותפו איתי"));
+      others.forEach((n) => box.append(noteRow(n, nm[n.user_id], false, redraw)));
+    }
+  }
 
   /* ---------- מועדפים והמשך מהמקום שעצרתי ---------- */
   function favButton(id) {

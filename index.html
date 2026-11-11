@@ -225,6 +225,12 @@
     return e;
   }
   function say(el, text, kind) { el.textContent = text; el.className = "msg " + (kind || ""); }
+  const SS = "shabtai_state";
+  function loadState() { try { return JSON.parse(sessionStorage.getItem(SS) || "{}"); } catch (e) { return {}; } }
+  function saveState(extra) { try { sessionStorage.setItem(SS, JSON.stringify({ ...loadState(), ...extra })); } catch (e) {} }
+  let scrollTimer;
+  window.addEventListener("scroll", () => { clearTimeout(scrollTimer); scrollTimer = setTimeout(() => saveState({ scroll: window.scrollY }), 150); }, { passive: true });
+  window.addEventListener("beforeunload", () => saveState({ scroll: window.scrollY }));
   const hdf = new Intl.DateTimeFormat("he-u-ca-hebrew", { year: "numeric", month: "long", day: "numeric" });
   const hp = (d) => { const pp = hdf.formatToParts(d), g = (t) => (pp.find((x) => x.type === t) || {}).value; return { y: g("year"), m: g("month"), d: g("day") }; };
   const isoOf = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
@@ -234,6 +240,7 @@
   }
   function show(v) {
     VIEWS.forEach((x) => { $(x).hidden = x !== v; });
+    if (v !== "authView") saveState({ view: v, scroll: 0 });
     const hl = v === "itemView" ? "libraryView" : v === "sharedView" ? "accountView" : v;
     document.querySelectorAll("nav button[data-view]").forEach((b) =>
       b.setAttribute("aria-current", String(b.dataset.view === hl)));
@@ -320,6 +327,7 @@
   ];
 
   function renderBrowse() {
+    saveState({ path, showAll });
     const box = $("itemsList"), cr = $("crumbs");
     box.replaceChildren();
     cr.replaceChildren();
@@ -365,7 +373,7 @@
     renderBrowse();
   }
 
-  $("cal").onchange = (e) => { cal = e.target.value; renderBrowse(); };
+  $("cal").onchange = (e) => { cal = e.target.value; saveState({ cal }); renderBrowse(); };
   $("newBtn").onclick = () => {
     const box = $("itemsList"), cr = $("crumbs");
     cr.replaceChildren();
@@ -423,6 +431,7 @@
 
   async function openItem(id) {
     show("itemView");
+    saveState({ itemId: id });
     const box = $("itemBox");
     box.replaceChildren(h("p", "muted", "טוענים…"));
     const { data, error } = await db.from("items").select("*").eq("id", id).maybeSingle();
@@ -900,6 +909,7 @@
 
   async function openShared(u) {
     show("sharedView");
+    saveState({ sharedUser: { id: u.id, full_name: u.full_name } });
     $("sharedTitle").textContent = "המועדפים של " + (u.full_name || "משתמש");
     const box = $("sharedItems");
     box.replaceChildren(h("p", "muted", "טוענים…"));
@@ -928,12 +938,21 @@
     setHello($("pName").value);
     $("navAdmin").hidden = !isAdmin;
     $("nav").hidden = false;
-    show("libraryView");
-    loadLibrary();
+    const st = loadState();
+    if (st.cal) { cal = st.cal; $("cal").value = cal; }
+    if (Array.isArray(st.path)) { path = st.path; showAll = !!st.showAll; }
+    await loadLibrary();
+    if (st.view === "itemView" && st.itemId) await openItem(st.itemId);
+    else if (st.view === "accountView") { show("accountView"); loadAccountLists(); loadSharedWith(); loadSharedToMe(); }
+    else if (st.view === "adminView" && isAdmin) { show("adminView"); loadAdmin(); }
+    else if (st.view === "sharedView" && st.sharedUser) await openShared(st.sharedUser);
+    else show("libraryView");
+    if (st.scroll) { const go = () => window.scrollTo(0, st.scroll); setTimeout(go, 150); setTimeout(go, 800); }
   }
 
   function leaveApp() {
     me = null; isAdmin = false; favs = new Set();
+    try { sessionStorage.removeItem(SS); } catch (e) {}
     $("nav").hidden = true;
     $("authForm").reset();
     setMode("login");

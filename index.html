@@ -459,6 +459,7 @@
     (data.body || "").split(/\n{2,}/).filter(Boolean).forEach((p) => box.append(h("p", "body", p)));
     const nb = h("div");
     box.append(nb);
+    lastSel = "";
     renderNotes(nb, id);
   }
   $("backBtn").onclick = () => show("libraryView");
@@ -622,9 +623,16 @@
   });
 
   /* ---------- הערות ---------- */
+  let lastSel = "";
+  document.addEventListener("selectionchange", () => {
+    const sel = window.getSelection(), t = String(sel).trim();
+    const n = sel.anchorNode && (sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement);
+    if (t && n && n.closest && n.closest("#itemBox .body")) lastSel = t;
+  });
+
   function noteRow(n, who, mineRow, redraw) {
     const el = h("div", "note");
-    if (n.quote) el.append(h("blockquote", null, n.quote));
+    if (n.quote) el.append(h("div", "meta", "על הטקסט המסומן:"), h("blockquote", null, "“" + n.quote + "”"));
     el.append(h("p", null, n.body));
     el.append(h("div", "meta", (who ? "מאת " + who + ", " : "") + new Date(n.created_at).toLocaleDateString("he-IL")));
     if (mineRow) {
@@ -658,16 +666,21 @@
     const sel = h("button", "small", "הערה על הטקסט המסומן");
     sel.type = "button";
     sel.onmousedown = (e) => e.preventDefault();
-    const quote = document.createElement("input");
-    quote.placeholder = "ציטוט או מיקום, למשל עמוד 3 (אופציונלי)";
-    quote.setAttribute("aria-label", "ציטוט או מיקום");
+    const quote = document.createElement("textarea");
+    quote.rows = 2;
+    quote.style.minHeight = "56px";
+    quote.placeholder = "הטקסט המסומן יופיע כאן. אפשר גם לכתוב מיקום, למשל עמוד 3";
+    quote.setAttribute("aria-label", "הטקסט המסומן או מיקום");
+    const hint = h("div", "meta", "");
     const body = document.createElement("textarea");
     body.placeholder = "ההערה שלי";
     body.required = true;
     body.setAttribute("aria-label", "ההערה");
     sel.onclick = () => {
-      const t = String(window.getSelection()).trim();
-      if (t) { quote.value = t.slice(0, 300); body.focus(); }
+      if (!lastSel) { hint.textContent = "סמני קודם טקסט בתוך המאמר, ואז לחצי על הכפתור."; return; }
+      quote.value = lastSel.slice(0, 500);
+      hint.textContent = "הטקסט המסומן נוסף לשדה. אפשר לערוך אותו.";
+      body.focus();
     };
     const lab = h("label", "check");
     const cb = document.createElement("input");
@@ -675,7 +688,7 @@
     lab.append(cb, document.createTextNode(" לשתף את ההערה"));
     const add = h("button", "primary", "הוספת הערה");
     add.type = "submit";
-    form.append(sel, quote, body, lab, add);
+    form.append(sel, hint, quote, body, lab, add);
     form.onsubmit = async (e) => {
       e.preventDefault();
       add.disabled = true;

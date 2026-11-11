@@ -114,6 +114,7 @@
     <p class="meta">חלוקה לפי תאריך:
       <select id="cal" style="width:auto"><option value="heb">עברי</option><option value="greg">לועזי</option></select>
     </p>
+    <p><button class="small" id="newBtn" type="button">התכנים החדשים ביותר</button></p>
     <div class="crumbs" id="crumbs"></div>
     <div id="itemsList"></div>
   </section>
@@ -174,7 +175,13 @@
       <select id="iCat"></select>
       <label for="iRebbe">רבי</label>
       <select id="iRebbe"></select>
-      <label for="iDate">תאריך התוכן</label>
+      <label for="hY">תאריך התוכן (עברי)</label>
+      <div class="inline">
+        <select id="hY" aria-label="שנה עברית"></select>
+        <select id="hM" aria-label="חודש עברי"></select>
+        <select id="hD" aria-label="יום עברי"></select>
+      </div>
+      <label for="iDate">או תאריך לועזי</label>
       <input id="iDate" type="date">
       <label for="iTitle">כותרת</label>
       <input id="iTitle" required>
@@ -218,6 +225,13 @@
     return e;
   }
   function say(el, text, kind) { el.textContent = text; el.className = "msg " + (kind || ""); }
+  const hdf = new Intl.DateTimeFormat("he-u-ca-hebrew", { year: "numeric", month: "long", day: "numeric" });
+  const hp = (d) => { const pp = hdf.formatToParts(d), g = (t) => (pp.find((x) => x.type === t) || {}).value; return { y: g("year"), m: g("month"), d: g("day") }; };
+  const isoOf = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  function dual(v) {
+    const d = new Date(String(v).length === 10 ? v + "T12:00:00" : v);
+    return d.toLocaleDateString("he-IL") + " (" + hdf.format(d) + ")";
+  }
   function show(v) {
     VIEWS.forEach((x) => { $(x).hidden = x !== v; });
     const hl = v === "itemView" ? "libraryView" : v === "sharedView" ? "accountView" : v;
@@ -272,8 +286,7 @@
     const b = h("button", "item");
     b.type = "button";
     b.append(h("div", "kind", cats[it.category_id] || KINDS[it.kind] || ""), h("h3", null, it.title));
-    const date = new Date(it.created_at).toLocaleDateString("he-IL");
-    b.append(h("div", "meta", (it.author ? "מאת " + it.author + ", " : "") + date));
+    b.append(h("div", "meta", (it.author ? "מאת " + it.author + ", " : "") + "נוסף " + dual(it.created_at)));
     if (it.summary) b.append(h("p", null, it.summary));
     b.onclick = () => openItem(it.id);
     return b;
@@ -353,6 +366,16 @@
   }
 
   $("cal").onchange = (e) => { cal = e.target.value; renderBrowse(); };
+  $("newBtn").onclick = () => {
+    const box = $("itemsList"), cr = $("crumbs");
+    cr.replaceChildren();
+    const back = h("button", "small", "חזרה לספרייה");
+    back.type = "button";
+    back.onclick = () => renderBrowse();
+    cr.append(back);
+    box.replaceChildren();
+    all.slice(0, 20).forEach((it) => box.append(itemCard(it)));
+  };
 
   $("searchForm").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -407,8 +430,9 @@
     if (error || !data) { box.append(h("p", "msg error", "התוכן לא נמצא.")); return; }
     box.append(h("div", "kind", cats[data.category_id] || KINDS[data.kind] || ""), h("h2", null, data.title));
     if (data.author) box.append(h("div", "meta", "מאת " + data.author));
-    const info = [rebbeName[data.rebbe_id], data.content_date && new Date(data.content_date + "T12:00:00").toLocaleDateString("he-u-ca-hebrew", { day: "numeric", month: "long", year: "numeric" })].filter(Boolean).join(", ");
+    const info = [rebbeName[data.rebbe_id], data.content_date && "תאריך: " + dual(data.content_date)].filter(Boolean).join(", ");
     if (info) box.append(h("div", "meta", info));
+    box.append(h("div", "meta", "נוסף לאתר: " + dual(data.created_at)));
     box.append(favButton(id));
     db.from("history").upsert({ user_id: me.id, item_id: id, opened_at: new Date().toISOString() }, { onConflict: "user_id,item_id" }).then(() => {});
     const m = mediaEl(data.media_url);
@@ -440,7 +464,51 @@
   $("backBtn").onclick = () => show("libraryView");
 
   /* ---------- ניהול תכנים ---------- */
+  const yearCache = {};
+  function scanYear(g) {
+    if (yearCache[g]) return yearCache[g];
+    const label = hp(new Date(g, 9, 31, 12)).y, days = [];
+    for (let d = new Date(g, 8, 1, 12); d < new Date(g + 1, 9, 10, 12); d.setDate(d.getDate() + 1)) {
+      const q = hp(d);
+      if (q.y === label) days.push({ iso: isoOf(d), m: q.m, d: q.d });
+    }
+    return (yearCache[g] = { label, days });
+  }
+  function fillDays(g, selIso) {
+    const days = scanYear(g).days.filter((x) => x.m === $("hM").value);
+    $("hD").replaceChildren(...days.map((x) => new Option(x.d, x.iso)));
+    if (selIso) $("hD").value = selIso;
+  }
+  function fillMonths(g, selM) {
+    const ms = [...new Set(scanYear(g).days.map((x) => x.m))];
+    $("hM").replaceChildren(...ms.map((m) => new Option(m, m)));
+    if (selM && ms.includes(selM)) $("hM").value = selM;
+    fillDays(g);
+  }
+  function initHeb() {
+    const sy = $("hY");
+    sy.replaceChildren(new Option("שנה", ""));
+    for (let g = new Date().getFullYear() + 1; g >= 1745; g--) sy.append(new Option(hp(new Date(g, 9, 31, 12)).y, g));
+  }
+  $("hY").onchange = () => {
+    const g = +$("hY").value;
+    if (!g) { $("hM").replaceChildren(); $("hD").replaceChildren(); return; }
+    fillMonths(g);
+    $("iDate").value = $("hD").value;
+  };
+  $("hM").onchange = () => { fillDays(+$("hY").value); $("iDate").value = $("hD").value; };
+  $("hD").onchange = () => { $("iDate").value = $("hD").value; };
+  $("iDate").onchange = () => {
+    const v = $("iDate").value;
+    if (!v) return;
+    const d = new Date(v + "T12:00:00");
+    for (const g of [d.getFullYear(), d.getFullYear() - 1]) {
+      if (scanYear(g).days.some((x) => x.iso === v)) { $("hY").value = g; fillMonths(g, hp(d).m); fillDays(g, v); return; }
+    }
+  };
+
   async function loadAdmin() {
+    if ($("hY").options.length < 2) initHeb();
     await loadMeta();
     const opt = (sel, list, first) => { sel.replaceChildren(new Option(first, "")); list.forEach((x) => sel.append(new Option(x.name, x.id))); };
     opt($("iCat"), catList, "ללא קטגוריה");
@@ -480,13 +548,13 @@
 
   async function loadAdminList() {
     const box = $("adminList");
-    const { data, error } = await db.from("items").select("id,title,file_path,category_id").order("created_at", { ascending: false });
+    const { data, error } = await db.from("items").select("id,title,file_path,category_id,created_at").order("created_at", { ascending: false });
     box.replaceChildren();
     if (error) { box.append(h("p", "msg error", "לא הצלחנו לטעון את הרשימה.")); return; }
     if (!data.length) { box.append(h("p", "muted", "עדיין לא נוספו תכנים.")); return; }
     data.forEach((it) => {
       const row = h("div", "row");
-      row.append(h("span", null, (cats[it.category_id] ? cats[it.category_id] + ": " : "") + it.title));
+      row.append(h("span", null, (cats[it.category_id] ? cats[it.category_id] + ": " : "") + it.title + " (נוסף " + dual(it.created_at) + ")"));
       const d = h("button", "del", "מחיקה");
       d.type = "button";
       d.onclick = async () => {
@@ -531,6 +599,8 @@
     btn.disabled = false;
     if (error) { say($("itemMsg"), "הפרסום נכשל. בדקי שהכותרת מלאה ושיש לך הרשאת ניהול.", "error"); return; }
     $("itemForm").reset();
+    $("hM").replaceChildren();
+    $("hD").replaceChildren();
     say($("itemMsg"), "התוכן פורסם.", "ok");
     loadAdminList();
   });

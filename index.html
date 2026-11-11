@@ -206,6 +206,11 @@
     <div id="rebbeManage"></div>
     <h2 class="sec">תכנים קיימים</h2>
     <div id="adminList"></div>
+    <h2 class="sec">משתמשים</h2>
+    <input id="userFilter" placeholder="סינון לפי שם או אימייל" aria-label="סינון משתמשים">
+    <div id="userList"></div>
+    <h2 class="sec">הערות משותפות אחרונות</h2>
+    <div id="modNotes"></div>
   </section>
 </main>
 
@@ -216,7 +221,7 @@
   const VIEWS = ["authView","libraryView","itemView","accountView","adminView","sharedView"];
   const KINDS = { article: "מאמר", audio: "שיעור שמע", video: "שיעור וידאו" };
   let me = null, isAdmin = false, filter = "all", mode = "login", favs = new Set();
-  let all = [], path = [], showAll = false, cal = "heb", cats = {}, rebbeName = {}, catList = [], rebbeList = [];
+  let flashMsg = "", allUsers = [], all = [], path = [], showAll = false, cal = "heb", cats = {}, rebbeName = {}, catList = [], rebbeList = [];
 
   function h(tag, cls, text) {
     const e = document.createElement(tag);
@@ -516,6 +521,70 @@
       if (scanYear(g).days.some((x) => x.iso === v)) { $("hY").value = g; fillMonths(g, hp(d).m); fillDays(g, v); return; }
     }
   };
+
+  async function loadUsers() {
+    const box = $("userList");
+    box.replaceChildren(h("p", "muted", "טוענים…"));
+    const { data, error } = await db.rpc("admin_list_users");
+    if (error) { box.replaceChildren(h("p", "msg error", "לא הצלחנו לטעון משתמשים: " + error.message)); return; }
+    allUsers = data;
+    renderUsers();
+  }
+
+  function renderUsers() {
+    const box = $("userList"), f = $("userFilter").value.trim().toLowerCase();
+    box.replaceChildren();
+    const list = allUsers.filter((u) => !f || (u.email || "").toLowerCase().includes(f) || (u.full_name || "").toLowerCase().includes(f));
+    box.append(h("p", "meta", list.length + " משתמשים"));
+    list.forEach((u) => {
+      const row = h("div", "row"), info = h("div");
+      info.append(h("div", null, (u.full_name || "ללא שם") + (u.is_admin ? " (מנהל)" : "") + (u.blocked ? " (חסום)" : "")));
+      const em = h("div", "meta", u.email);
+      em.dir = "ltr";
+      em.style.textAlign = "right";
+      info.append(em, h("div", "meta", "הצטרף " + dual(u.created_at) + (u.last_sign_in_at ? ", כניסה אחרונה " + dual(u.last_sign_in_at) : "")));
+      row.append(info);
+      if (!u.is_admin && u.id !== me.id) {
+        const b = h("button", u.blocked ? "small" : "del", u.blocked ? "ביטול חסימה" : "חסימה");
+        b.type = "button";
+        b.onclick = async () => {
+          if (!confirm((u.blocked ? "לבטל את החסימה של " : "לחסום את ") + (u.full_name || u.email) + "?")) return;
+          const { error } = await db.rpc("admin_set_blocked", { uid: u.id, b: !u.blocked });
+          if (error) say($("itemMsg"), "הפעולה נכשלה: " + error.message, "error"); else loadUsers();
+        };
+        row.append(b);
+      }
+      box.append(row);
+    });
+  }
+  $("userFilter").oninput = renderUsers;
+
+  async function loadSharedNotes() {
+    const box = $("modNotes");
+    box.replaceChildren(h("p", "muted", "טוענים…"));
+    const { data, error } = await db.from("notes").select("id,user_id,quote,body,image_path,created_at,items(title)").eq("shared", true).order("created_at", { ascending: false }).limit(30);
+    if (error) { box.replaceChildren(h("p", "msg error", "לא הצלחנו לטעון הערות: " + error.message)); return; }
+    box.replaceChildren();
+    if (!data.length) { box.append(h("p", "muted", "אין הערות משותפות.")); return; }
+    const { data: ps } = await db.from("profiles").select("id,full_name").in("id", [...new Set(data.map((n) => n.user_id))]);
+    const nm = Object.fromEntries((ps || []).map((x) => [x.id, x.full_name || "משתמש"]));
+    data.forEach((n) => {
+      const row = h("div", "row"), info = h("div");
+      info.append(h("div", null, n.body.slice(0, 140)));
+      info.append(h("div", "meta", nm[n.user_id] + " על " + ((n.items && n.items.title) || "תוכן שנמחק") + ", " + dual(n.created_at)));
+      const d = h("button", "del", "מחיקה");
+      d.type = "button";
+      d.onclick = async () => {
+        if (!confirm("למחוק את ההערה?")) return;
+        const { error: err } = await db.from("notes").delete().eq("id", n.id);
+        if (err) { say($("itemMsg"), "המחיקה נכשלה: " + err.message, "error"); return; }
+        if (n.image_path) await db.storage.from("note-images").remove([n.image_path]);
+        loadSharedNotes();
+      };
+      row.append(info, d);
+      box.append(row);
+    });
+  }
 
   async function loadAdmin() {
     if ($("hY").options.length < 2) initHeb();
@@ -921,13 +990,14 @@
   /* ---------- ניווט ומצב התחברות ---------- */
   $("navLib").onclick = () => { path = []; showAll = false; show("libraryView"); loadLibrary(); };
   $("navAcc").onclick = () => { say($("profileMsg"), ""); show("accountView"); loadAccountLists(); loadSharedWith(); loadSharedToMe(); };
-  $("navAdmin").onclick = () => { show("adminView"); loadAdmin(); };
+  $("navAdmin").onclick = () => { show("adminView"); loadAdmin(); loadUsers(); loadSharedNotes(); };
   $("logoutBtn").onclick = () => db.auth.signOut();
 
   async function enterApp(user) {
     if (me && me.id === user.id) return;
     me = user;
-    const { data } = await db.from("profiles").select("full_name,bio,is_admin,favs_public").eq("id", user.id).maybeSingle();
+    const { data } = await db.from("profiles").select("full_name,bio,is_admin,favs_public,blocked").eq("id", user.id).maybeSingle();
+    if (data && data.blocked) { me = null; flashMsg = "החשבון הזה נחסם. לפרטים אפשר לפנות למנהלת האתר."; await db.auth.signOut(); return; }
     isAdmin = !!(data && data.is_admin);
     const { data: fv } = await db.from("favorites").select("item_id").eq("user_id", user.id);
     favs = new Set((fv || []).map((r) => r.item_id));
@@ -957,6 +1027,7 @@
     $("authForm").reset();
     setMode("login");
     show("authView");
+    if (flashMsg) { say($("authMsg"), flashMsg, "error"); flashMsg = ""; }
   }
 
   db.auth.onAuthStateChange((_event, session) => {

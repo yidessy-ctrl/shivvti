@@ -634,6 +634,13 @@
     const el = h("div", "note");
     if (n.quote) el.append(h("div", "meta", "על הטקסט המסומן:"), h("blockquote", null, "“" + n.quote + "”"));
     el.append(h("p", null, n.body));
+    if (n.image_path) {
+      const im = document.createElement("img");
+      im.alt = "הקטע המסומן";
+      im.style.maxWidth = "100%";
+      el.append(im);
+      db.storage.from("note-images").createSignedUrl(n.image_path, 3600).then(({ data }) => { if (data) im.src = data.signedUrl; });
+    }
     el.append(h("div", "meta", (who ? "מאת " + who + ", " : "") + new Date(n.created_at).toLocaleDateString("he-IL")));
     if (mineRow) {
       const lab = h("label", "check");
@@ -650,7 +657,9 @@
       d.onclick = async () => {
         if (!confirm("למחוק את ההערה?")) return;
         const { error } = await db.from("notes").delete().eq("id", n.id);
-        if (!error) redraw();
+        if (error) return;
+        if (n.image_path) await db.storage.from("note-images").remove([n.image_path]);
+        redraw();
       };
       el.append(lab, d);
     }
@@ -659,7 +668,7 @@
 
   async function renderNotes(box, itemId, hasFile) {
     box.replaceChildren(h("h3", "sub", "הערות"));
-    const { data, error } = await db.from("notes").select("id,user_id,quote,body,shared,created_at").eq("item_id", itemId).order("created_at");
+    const { data, error } = await db.from("notes").select("id,user_id,quote,body,shared,created_at,image_path").eq("item_id", itemId).order("created_at");
     if (error) { box.append(h("p", "msg error", "לא הצלחנו לטעון את ההערות: " + error.message)); return; }
     const redraw = () => renderNotes(box, itemId, hasFile);
     const form = h("form", "nform");
@@ -672,6 +681,21 @@
     quote.placeholder = "הטקסט המסומן יופיע כאן. אפשר גם לכתוב מיקום, למשל עמוד 3";
     quote.setAttribute("aria-label", "הטקסט המסומן או מיקום");
     const hint = h("div", "meta", "");
+    let pic = null;
+    const prev = document.createElement("img");
+    prev.hidden = true;
+    prev.alt = "תמונה מצורפת";
+    prev.style.maxWidth = "100%";
+    const setPic = (f) => { pic = f; prev.src = URL.createObjectURL(f); prev.hidden = false; hint.textContent = "התמונה צורפה להערה."; };
+    const file = document.createElement("input");
+    file.type = "file";
+    file.accept = "image/*";
+    file.setAttribute("aria-label", "צירוף תמונה");
+    file.onchange = () => { if (file.files[0]) setPic(file.files[0]); };
+    form.addEventListener("paste", (e) => {
+      const it = [...((e.clipboardData && e.clipboardData.items) || [])].find((x) => x.type.startsWith("image/"));
+      if (it) { e.preventDefault(); setPic(it.getAsFile()); }
+    });
     const body = document.createElement("textarea");
     body.placeholder = "ההערה שלי";
     body.required = true;
@@ -680,7 +704,7 @@
       const t = lastSel || String(window.getSelection()).trim();
       if (!t) {
         hint.textContent = hasFile
-          ? "בקובץ PDF אי אפשר לסמן ישירות מהאתר. סמני את הטקסט בקובץ, העתיקי אותו (Ctrl+C), ולחצי על “הדבקת טקסט שהועתק”."
+          ? "בקובץ PDF אי אפשר לסמן ישירות מהאתר. צלמי את הקטע (Win+Shift+S) והדביקי כאן עם Ctrl+V, או כתבי את המיקום בשדה."
           : "סמני קודם טקסט בתוך המאמר, ואז לחצי על הכפתור.";
         return;
       }
@@ -706,11 +730,17 @@
     lab.append(cb, document.createTextNode(" לשתף את ההערה"));
     const add = h("button", "primary", "הוספת הערה");
     add.type = "submit";
-    form.append(sel, paste, hint, quote, body, lab, add);
+    form.append(sel, paste, hint, quote, h("div", "meta", "צילום מסך של הקטע המסומן (Win+Shift+S, ואז Ctrl+V כאן), או צירוף תמונה:"), file, prev, body, lab, add);
     form.onsubmit = async (e) => {
       e.preventDefault();
       add.disabled = true;
-      const { error: err } = await db.from("notes").insert({ user_id: me.id, item_id: itemId, quote: quote.value.trim() || null, body: body.value.trim(), shared: cb.checked });
+      let image_path = null;
+      if (pic) {
+        image_path = me.id + "/" + crypto.randomUUID() + "." + ((pic.type.split("/")[1] || "png").replace(/[^a-z0-9]/gi, ""));
+        const up = await db.storage.from("note-images").upload(image_path, pic, { contentType: pic.type || "image/png" });
+        if (up.error) { add.disabled = false; hint.textContent = "העלאת התמונה נכשלה: " + up.error.message; return; }
+      }
+      const { error: err } = await db.from("notes").insert({ user_id: me.id, item_id: itemId, quote: quote.value.trim() || null, body: body.value.trim(), shared: cb.checked, image_path });
       add.disabled = false;
       if (err) { hint.textContent = "ההוספה נכשלה: " + err.message; return; }
       redraw();

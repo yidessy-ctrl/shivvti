@@ -51,6 +51,17 @@
   .media audio, .media video { width:100%; }
   .row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); }
   .del { background:transparent; border:1px solid var(--error); color:var(--error); border-radius:6px; padding:4px 12px; font:inherit; cursor:pointer; }
+  .fav { margin:12px 0 4px; padding:6px 16px; border:1px solid var(--gold); background:#fff; color:var(--ink); border-radius:999px; font:inherit; cursor:pointer; }
+  .fav[aria-pressed="true"] { background:var(--gold); color:#fff; }
+  .sec { margin:28px 0 12px; font-size:1.4rem; }
+  .check { display:flex; gap:10px; align-items:center; font-weight:600; margin:0 0 6px; }
+  .check input { width:auto; }
+  .sub { font-size:1.1rem; margin:22px 0 8px; }
+  .inline { display:flex; gap:8px; }
+  .small { border:1px solid var(--ink); background:#fff; color:var(--ink); border-radius:6px; padding:4px 14px; font:inherit; cursor:pointer; white-space:nowrap; }
+  .favrow { margin-bottom:18px; }
+  .favrow .item { margin-bottom:4px; }
+  .favrow .check { margin:2px 4px 0; font-weight:400; }
   [hidden] { display:none !important; }
 </style>
 </head>
@@ -102,7 +113,8 @@
     <div id="itemBox"></div>
   </section>
 
-  <section id="accountView" class="card narrow" hidden>
+  <section id="accountView" hidden>
+    <div class="card">
     <h2 id="hello">האיזור האישי שלי</h2>
     <p id="accountEmail" class="email"></p>
     <form id="profileForm">
@@ -113,6 +125,36 @@
       <button id="saveBtn" class="primary" type="submit">שמירת שינויים</button>
     </form>
     <p id="profileMsg" class="msg" role="status"></p>
+    </div>
+    <h2 class="sec">המשך מהמקום שעצרתי</h2>
+    <div id="recentList"></div>
+    <h2 class="sec">המועדפים שלי</h2>
+    <div id="favList"></div>
+    <p id="favMsg" class="msg" role="status"></p>
+
+    <h2 class="sec">שיתוף המועדפים שלי</h2>
+    <div class="card">
+      <p class="muted">רק תכנים שסימנת “לשתף את התוכן הזה” ברשימת המועדפים למעלה יהיו גלויים לאחרים.</p>
+      <label class="check"><input type="checkbox" id="pubToggle"> שיתוף עם כל המשתמשים באתר</label>
+      <h3 class="sub">שיתוף עם משתמשים מסוימים</h3>
+      <form id="userSearchForm" class="inline">
+        <input id="userQ" placeholder="חיפוש לפי שם" aria-label="חיפוש משתמש לפי שם">
+        <button class="small" type="submit">חיפוש</button>
+      </form>
+      <div id="userResults"></div>
+      <h3 class="sub">משותף כרגע עם</h3>
+      <div id="sharedWith"></div>
+      <p id="shareMsg" class="msg" role="status"></p>
+    </div>
+
+    <h2 class="sec">שיתפו איתי</h2>
+    <div class="card"><div id="sharedToMe"></div></div>
+  </section>
+
+  <section id="sharedView" hidden>
+    <button class="back" id="backAcc">חזרה לאיזור האישי</button>
+    <h2 id="sharedTitle"></h2>
+    <div id="sharedItems"></div>
   </section>
 
   <section id="adminView" class="card" hidden>
@@ -146,9 +188,9 @@
 <script>
   const db = supabase.createClient("https://goxuttqosikycbskqhra.supabase.co", "sb_publishable__yAh-tm8u3VWggJGKRR-6Q_hvquy945");
   const $ = (id) => document.getElementById(id);
-  const VIEWS = ["authView","libraryView","itemView","accountView","adminView"];
+  const VIEWS = ["authView","libraryView","itemView","accountView","adminView","sharedView"];
   const KINDS = { article: "מאמר", audio: "שיעור שמע", video: "שיעור וידאו" };
-  let me = null, isAdmin = false, filter = "all", mode = "login";
+  let me = null, isAdmin = false, filter = "all", mode = "login", favs = new Set();
 
   function h(tag, cls, text) {
     const e = document.createElement(tag);
@@ -159,7 +201,7 @@
   function say(el, text, kind) { el.textContent = text; el.className = "msg " + (kind || ""); }
   function show(v) {
     VIEWS.forEach((x) => { $(x).hidden = x !== v; });
-    const hl = v === "itemView" ? "libraryView" : v;
+    const hl = v === "itemView" ? "libraryView" : v === "sharedView" ? "accountView" : v;
     document.querySelectorAll("nav button[data-view]").forEach((b) =>
       b.setAttribute("aria-current", String(b.dataset.view === hl)));
   }
@@ -207,6 +249,17 @@
   });
 
   /* ---------- ספרייה ---------- */
+  function itemCard(it) {
+    const b = h("button", "item");
+    b.type = "button";
+    b.append(h("div", "kind", KINDS[it.kind] || ""), h("h3", null, it.title));
+    const date = new Date(it.created_at).toLocaleDateString("he-IL");
+    b.append(h("div", "meta", (it.author ? "מאת " + it.author + ", " : "") + date));
+    if (it.summary) b.append(h("p", null, it.summary));
+    b.onclick = () => openItem(it.id);
+    return b;
+  }
+
   async function loadLibrary() {
     const box = $("itemsList");
     box.replaceChildren(h("p", "muted", "טוענים…"));
@@ -219,16 +272,7 @@
       box.append(h("p", "muted", isAdmin ? "עדיין אין תכנים. אפשר להוסיף בעמוד הניהול." : "עדיין אין תכנים כאן. בקרוב יתווספו."));
       return;
     }
-    data.forEach((it) => {
-      const b = h("button", "item");
-      b.type = "button";
-      b.append(h("div", "kind", KINDS[it.kind] || ""), h("h3", null, it.title));
-      const date = new Date(it.created_at).toLocaleDateString("he-IL");
-      b.append(h("div", "meta", (it.author ? "מאת " + it.author + ", " : "") + date));
-      if (it.summary) b.append(h("p", null, it.summary));
-      b.onclick = () => openItem(it.id);
-      box.append(b);
-    });
+    data.forEach((it) => box.append(itemCard(it)));
   }
 
   document.querySelectorAll("#chips button").forEach((b) => {
@@ -271,6 +315,8 @@
     if (error || !data) { box.append(h("p", "msg error", "התוכן לא נמצא.")); return; }
     box.append(h("div", "kind", KINDS[data.kind] || ""), h("h2", null, data.title));
     if (data.author) box.append(h("div", "meta", "מאת " + data.author));
+    box.append(favButton(id));
+    db.from("history").upsert({ user_id: me.id, item_id: id, opened_at: new Date().toISOString() }, { onConflict: "user_id,item_id" }).then(() => {});
     const m = mediaEl(data.media_url);
     if (m) box.append(m);
     (data.body || "").split(/\n{2,}/).filter(Boolean).forEach((p) => box.append(h("p", "body", p)));
@@ -337,20 +383,175 @@
     setHello($("pName").value.trim());
   });
 
+  /* ---------- מועדפים והמשך מהמקום שעצרתי ---------- */
+  function favButton(id) {
+    const b = h("button", "fav");
+    b.type = "button";
+    const paint = () => {
+      const on = favs.has(id);
+      b.textContent = on ? "★ שמור במועדפים" : "☆ שמירה במועדפים";
+      b.setAttribute("aria-pressed", String(on));
+    };
+    paint();
+    b.onclick = async () => {
+      b.disabled = true;
+      if (favs.has(id)) {
+        const { error } = await db.from("favorites").delete().eq("item_id", id).eq("user_id", me.id);
+        if (!error) favs.delete(id);
+      } else {
+        const { error } = await db.from("favorites").insert({ user_id: me.id, item_id: id });
+        if (!error) favs.add(id);
+      }
+      b.disabled = false;
+      paint();
+    };
+    return b;
+  }
+
+  function fillList(box, res, emptyText) {
+    box.replaceChildren();
+    if (res.error) { box.append(h("p", "msg error", "לא הצלחנו לטעון את הרשימה.")); return; }
+    const rows = (res.data || []).map((r) => r.items).filter(Boolean);
+    if (!rows.length) { box.append(h("p", "muted", emptyText)); return; }
+    rows.forEach((it) => box.append(itemCard(it)));
+  }
+
+  function renderMyFavs(box, res) {
+    box.replaceChildren();
+    if (res.error) { box.append(h("p", "msg error", "לא הצלחנו לטעון את הרשימה.")); return; }
+    const rows = (res.data || []).filter((r) => r.items);
+    if (!rows.length) { box.append(h("p", "muted", "אין עדיין מועדפים. בעמוד של כל תוכן יש כפתור לשמירה.")); return; }
+    rows.forEach((r) => {
+      const wrap = h("div", "favrow");
+      wrap.append(itemCard(r.items));
+      const lab = h("label", "check");
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = !!r.shared;
+      cb.onchange = async () => {
+        const { error } = await db.from("favorites").update({ shared: cb.checked }).eq("user_id", me.id).eq("item_id", r.items.id);
+        if (error) { cb.checked = !cb.checked; say($("favMsg"), "העדכון נכשל. נסו שוב.", "error"); return; }
+        say($("favMsg"), cb.checked ? "התוכן סומן לשיתוף." : "התוכן כבר לא משותף.", "ok");
+      };
+      lab.append(cb, document.createTextNode(" לשתף את התוכן הזה"));
+      wrap.append(lab);
+      box.append(wrap);
+    });
+  }
+
+  async function loadAccountLists() {
+    const cols = "items(id,kind,title,author,summary,created_at)";
+    const [rec, fav] = await Promise.all([
+      db.from("history").select("opened_at," + cols).eq("user_id", me.id).order("opened_at", { ascending: false }).limit(5),
+      db.from("favorites").select("created_at,shared," + cols).eq("user_id", me.id).order("created_at", { ascending: false })
+    ]);
+    fillList($("recentList"), rec, "עדיין לא נפתחו תכנים. תכנים שתפתחו יופיעו כאן.");
+    renderMyFavs($("favList"), fav);
+  }
+
+  /* ---------- שיתוף המועדפים ---------- */
+  function personRow(p, label, onClick) {
+    const row = h("div", "row");
+    const info = h("div");
+    info.append(h("div", null, p.full_name || "משתמש ללא שם"));
+    if (p.bio) info.append(h("div", "meta", p.bio.slice(0, 60)));
+    const b = h("button", "small", label);
+    b.type = "button";
+    b.onclick = onClick;
+    row.append(info, b);
+    return row;
+  }
+
+  $("pubToggle").onchange = async (e) => {
+    const on = e.target.checked;
+    const { error } = await db.from("profiles").update({ favs_public: on }).eq("id", me.id);
+    if (error) { e.target.checked = !on; say($("shareMsg"), "העדכון נכשל. נסו שוב.", "error"); return; }
+    say($("shareMsg"), on ? "התכנים שסימנת לשיתוף גלויים עכשיו לכל המשתמשים באתר." : "התכנים שלך כבר לא גלויים לכולם.", "ok");
+  };
+
+  $("userSearchForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const q = $("userQ").value.trim().replace(/[%_*,()]/g, "");
+    const box = $("userResults");
+    box.replaceChildren();
+    if (q.length < 2) { box.append(h("p", "muted", "כדאי להקליד לפחות שני תווים מהשם.")); return; }
+    const { data, error } = await db.from("profiles").select("id,full_name,bio").ilike("full_name", "%" + q + "%").neq("id", me.id).limit(10);
+    if (error) { box.append(h("p", "msg error", "החיפוש נכשל.")); return; }
+    if (!data.length) { box.append(h("p", "muted", "לא נמצאו משתמשים בשם הזה.")); return; }
+    data.forEach((u) => box.append(personRow(u, "שיתוף", () => addShare(u.id))));
+  });
+
+  async function addShare(viewerId) {
+    const { error } = await db.from("favorite_shares").upsert({ owner_id: me.id, viewer_id: viewerId }, { onConflict: "owner_id,viewer_id", ignoreDuplicates: true });
+    if (error) { say($("shareMsg"), "השיתוף נכשל.", "error"); return; }
+    say($("shareMsg"), "המועדפים שלך שותפו.", "ok");
+    $("userResults").replaceChildren();
+    $("userQ").value = "";
+    loadSharedWith();
+  }
+
+  async function removeShare(viewerId) {
+    const { error } = await db.from("favorite_shares").delete().eq("owner_id", me.id).eq("viewer_id", viewerId);
+    if (error) { say($("shareMsg"), "ביטול השיתוף נכשל.", "error"); return; }
+    say($("shareMsg"), "השיתוף בוטל.", "ok");
+    loadSharedWith();
+  }
+
+  async function loadSharedWith() {
+    const box = $("sharedWith");
+    box.replaceChildren();
+    const { data, error } = await db.from("favorite_shares").select("viewer_id").eq("owner_id", me.id);
+    if (error) { box.append(h("p", "msg error", "לא הצלחנו לטעון את הרשימה.")); return; }
+    if (!data.length) { box.append(h("p", "muted", "עדיין לא שותף עם משתמשים מסוימים.")); return; }
+    const { data: ps } = await db.from("profiles").select("id,full_name,bio").in("id", data.map((r) => r.viewer_id));
+    (ps || []).forEach((u) => box.append(personRow(u, "ביטול שיתוף", () => removeShare(u.id))));
+  }
+
+  async function loadSharedToMe() {
+    const box = $("sharedToMe");
+    box.replaceChildren();
+    const [direct, pub] = await Promise.all([
+      db.from("favorite_shares").select("owner_id").eq("viewer_id", me.id),
+      db.from("profiles").select("id,full_name,bio").eq("favs_public", true).neq("id", me.id).limit(50)
+    ]);
+    if (direct.error || pub.error) { box.append(h("p", "msg error", "לא הצלחנו לטעון את הרשימה.")); return; }
+    const people = pub.data.slice();
+    const ids = direct.data.map((r) => r.owner_id);
+    if (ids.length) {
+      const { data } = await db.from("profiles").select("id,full_name,bio").in("id", ids);
+      (data || []).forEach((u) => { if (!people.some((x) => x.id === u.id)) people.push(u); });
+    }
+    if (!people.length) { box.append(h("p", "muted", "עדיין אף אחד לא שיתף איתך רשימה.")); return; }
+    people.forEach((u) => box.append(personRow(u, "צפייה ברשימה", () => openShared(u))));
+  }
+
+  async function openShared(u) {
+    show("sharedView");
+    $("sharedTitle").textContent = "המועדפים של " + (u.full_name || "משתמש");
+    const box = $("sharedItems");
+    box.replaceChildren(h("p", "muted", "טוענים…"));
+    const res = await db.from("favorites").select("created_at,items(id,kind,title,author,summary,created_at)").eq("user_id", u.id).order("created_at", { ascending: false });
+    fillList(box, res, "אין תכנים משותפים כרגע.");
+  }
+  $("backAcc").onclick = () => show("accountView");
+
   /* ---------- ניווט ומצב התחברות ---------- */
   $("navLib").onclick = () => { show("libraryView"); loadLibrary(); };
-  $("navAcc").onclick = () => { say($("profileMsg"), ""); show("accountView"); };
+  $("navAcc").onclick = () => { say($("profileMsg"), ""); show("accountView"); loadAccountLists(); loadSharedWith(); loadSharedToMe(); };
   $("navAdmin").onclick = () => { show("adminView"); loadAdminList(); };
   $("logoutBtn").onclick = () => db.auth.signOut();
 
   async function enterApp(user) {
     if (me && me.id === user.id) return;
     me = user;
-    const { data } = await db.from("profiles").select("full_name,bio,is_admin").eq("id", user.id).maybeSingle();
+    const { data } = await db.from("profiles").select("full_name,bio,is_admin,favs_public").eq("id", user.id).maybeSingle();
     isAdmin = !!(data && data.is_admin);
+    const { data: fv } = await db.from("favorites").select("item_id").eq("user_id", user.id);
+    favs = new Set((fv || []).map((r) => r.item_id));
     $("pName").value = (data && data.full_name) || "";
     $("pBio").value = (data && data.bio) || "";
     $("accountEmail").textContent = user.email;
+    $("pubToggle").checked = !!(data && data.favs_public);
     setHello($("pName").value);
     $("navAdmin").hidden = !isAdmin;
     $("nav").hidden = false;
@@ -359,7 +560,7 @@
   }
 
   function leaveApp() {
-    me = null; isAdmin = false;
+    me = null; isAdmin = false; favs = new Set();
     $("nav").hidden = true;
     $("authForm").reset();
     setMode("login");

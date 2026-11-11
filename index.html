@@ -62,6 +62,8 @@
   .favrow { margin-bottom:18px; }
   .favrow .item { margin-bottom:4px; }
   .favrow .check { margin:2px 4px 0; font-weight:400; }
+  .hero { display:block; max-width:220px; width:60%; margin:0 auto 20px; border-radius:8px; }
+  .crumbs { display:flex; flex-wrap:wrap; gap:6px; margin:14px 0; }
   [hidden] { display:none !important; }
 </style>
 </head>
@@ -79,6 +81,7 @@
 
 <main>
   <section id="authView" class="card narrow" hidden>
+    <img class="hero" src="rebbe.jpg" alt="" onerror="this.remove()">
     <div class="tabs" role="tablist">
       <button id="tabLogin" role="tab" aria-selected="true">התחברות</button>
       <button id="tabSignup" role="tab" aria-selected="false">הרשמה</button>
@@ -99,12 +102,14 @@
 
   <section id="libraryView" hidden>
     <h2>ספרייה</h2>
-    <div class="chips" id="chips">
-      <button data-f="all" aria-pressed="true">הכול</button>
-      <button data-f="article" aria-pressed="false">מאמרים</button>
-      <button data-f="audio" aria-pressed="false">שיעורי שמע</button>
-      <button data-f="video" aria-pressed="false">שיעורי וידאו</button>
-    </div>
+    <form id="searchForm" class="inline">
+      <input id="q" placeholder="חיפוש בכותרות, מחברים, תקצירים וטקסט" aria-label="חיפוש">
+      <button class="small" type="submit">חיפוש</button>
+    </form>
+    <p class="meta">חלוקה לפי תאריך:
+      <select id="cal" style="width:auto"><option value="heb">עברי</option><option value="greg">לועזי</option></select>
+    </p>
+    <div class="crumbs" id="crumbs"></div>
     <div id="itemsList"></div>
   </section>
 
@@ -160,26 +165,34 @@
   <section id="adminView" class="card" hidden>
     <h2>הוספת תוכן</h2>
     <form id="itemForm">
-      <label for="iKind">סוג</label>
-      <select id="iKind">
-        <option value="article">מאמר</option>
-        <option value="audio">שיעור שמע</option>
-        <option value="video">שיעור וידאו</option>
-      </select>
+      <label for="iCat">קטגוריה</label>
+      <select id="iCat"></select>
+      <label for="iRebbe">רבי</label>
+      <select id="iRebbe"></select>
+      <label for="iDate">תאריך התוכן</label>
+      <input id="iDate" type="date">
       <label for="iTitle">כותרת</label>
       <input id="iTitle" required>
       <label for="iAuthor">מחבר או מגיד השיעור</label>
       <input id="iAuthor">
       <label for="iSummary">תקציר קצר</label>
       <input id="iSummary">
-      <label for="iMedia">קישור לשמע או לוידאו (כתובת שמתחילה ב־https://)</label>
+      <label for="iFile">קובץ במראה המקורי (PDF או תמונה)</label>
+      <input id="iFile" type="file" accept=".pdf,image/*">
+      <label for="iMedia">קישור לשמע או לוידאו (https://)</label>
       <input id="iMedia" dir="ltr">
       <label for="iBody">טקסט (פסקאות מופרדות בשורה ריקה)</label>
       <textarea id="iBody"></textarea>
       <button id="itemSave" class="primary" type="submit">פרסום</button>
     </form>
     <p id="itemMsg" class="msg" role="status"></p>
-    <h2>תכנים קיימים</h2>
+    <h2 class="sec">קטגוריות</h2>
+    <form id="catForm" class="inline"><input id="catName" placeholder="קטגוריה חדשה" aria-label="שם קטגוריה"><button class="small" type="submit">הוספה</button></form>
+    <div id="catManage"></div>
+    <h2 class="sec">רבנים</h2>
+    <form id="rebbeForm" class="inline"><input id="rebbeName" placeholder="שם חדש" aria-label="שם רבי"><button class="small" type="submit">הוספה</button></form>
+    <div id="rebbeManage"></div>
+    <h2 class="sec">תכנים קיימים</h2>
     <div id="adminList"></div>
   </section>
 </main>
@@ -191,6 +204,7 @@
   const VIEWS = ["authView","libraryView","itemView","accountView","adminView","sharedView"];
   const KINDS = { article: "מאמר", audio: "שיעור שמע", video: "שיעור וידאו" };
   let me = null, isAdmin = false, filter = "all", mode = "login", favs = new Set();
+  let all = [], path = [], showAll = false, cal = "heb", cats = {}, rebbeName = {}, catList = [], rebbeList = [];
 
   function h(tag, cls, text) {
     const e = document.createElement(tag);
@@ -252,7 +266,7 @@
   function itemCard(it) {
     const b = h("button", "item");
     b.type = "button";
-    b.append(h("div", "kind", KINDS[it.kind] || ""), h("h3", null, it.title));
+    b.append(h("div", "kind", cats[it.category_id] || KINDS[it.kind] || ""), h("h3", null, it.title));
     const date = new Date(it.created_at).toLocaleDateString("he-IL");
     b.append(h("div", "meta", (it.author ? "מאת " + it.author + ", " : "") + date));
     if (it.summary) b.append(h("p", null, it.summary));
@@ -260,27 +274,100 @@
     return b;
   }
 
-  async function loadLibrary() {
-    const box = $("itemsList");
-    box.replaceChildren(h("p", "muted", "טוענים…"));
-    let q = db.from("items").select("id,kind,title,author,summary,created_at").order("created_at", { ascending: false });
-    if (filter !== "all") q = q.eq("kind", filter);
-    const { data, error } = await q;
-    box.replaceChildren();
-    if (error) { box.append(h("p", "msg error", "לא הצלחנו לטעון את התכנים.")); return; }
-    if (!data.length) {
-      box.append(h("p", "muted", isAdmin ? "עדיין אין תכנים. אפשר להוסיף בעמוד הניהול." : "עדיין אין תכנים כאן. בקרוב יתווספו."));
-      return;
-    }
-    data.forEach((it) => box.append(itemCard(it)));
+  async function loadMeta() {
+    const [c, r] = await Promise.all([
+      db.from("categories").select("id,name").order("created_at"),
+      db.from("rebbes").select("id,name").order("ord").order("name")
+    ]);
+    catList = c.data || [];
+    rebbeList = r.data || [];
+    cats = Object.fromEntries(catList.map((x) => [x.id, x.name]));
+    rebbeName = Object.fromEntries(rebbeList.map((x) => [x.id, x.name]));
   }
 
-  document.querySelectorAll("#chips button").forEach((b) => {
-    b.onclick = () => {
-      filter = b.dataset.f;
-      document.querySelectorAll("#chips button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
-      loadLibrary();
-    };
+  function dparts(it) {
+    if (!it.content_date) return { y: "ללא תאריך", m: "—", t: 0 };
+    const d = new Date(it.content_date + "T12:00:00");
+    const loc = cal === "heb" ? "he-u-ca-hebrew" : "he-IL-u-ca-gregory";
+    const pp = new Intl.DateTimeFormat(loc, { year: "numeric", month: "long" }).formatToParts(d);
+    const g = (t) => (pp.find((x) => x.type === t) || {}).value || "—";
+    return { y: g("year"), m: g("month"), t: d.getTime() };
+  }
+
+  const STEPS = [
+    { key: (it) => it.category_id || "none", name: (k) => (k === "none" ? "ללא קטגוריה" : cats[k] || "?"), order: () => catList.map((x) => x.id) },
+    { key: (it) => it.rebbe_id || "none", name: (k) => (k === "none" ? "ללא רבי" : rebbeName[k] || "?"), order: () => rebbeList.map((x) => x.id) },
+    { key: (it) => dparts(it).y, name: (k) => k },
+    { key: (it) => dparts(it).m, name: (k) => k }
+  ];
+
+  function renderBrowse() {
+    const box = $("itemsList"), cr = $("crumbs");
+    box.replaceChildren();
+    cr.replaceChildren();
+    const crumb = (label, fn) => { const b = h("button", "small", label); b.type = "button"; b.onclick = fn; cr.append(b); };
+    crumb("ספרייה", () => { path = []; showAll = false; renderBrowse(); });
+    let items = all;
+    path.forEach((k, i) => {
+      items = items.filter((it) => STEPS[i].key(it) === k);
+      crumb(STEPS[i].name(k), () => { path = path.slice(0, i + 1); showAll = false; renderBrowse(); });
+    });
+    if (!items.length) { box.append(h("p", "muted", isAdmin ? "עדיין אין תכנים. אפשר להוסיף בעמוד הניהול." : "עדיין אין תכנים כאן.")); return; }
+    if (path.length >= STEPS.length || showAll) { items.forEach((it) => box.append(itemCard(it))); return; }
+    const step = STEPS[path.length], groups = new Map();
+    items.forEach((it) => {
+      const k = step.key(it), g = groups.get(k) || { k, n: 0, t: Infinity };
+      g.n++;
+      g.t = Math.min(g.t, dparts(it).t || Infinity);
+      groups.set(k, g);
+    });
+    const ord = step.order ? step.order() : null;
+    const list = [...groups.values()].sort((a, b) => ord ? (ord.indexOf(a.k) + 1 || 999) - (ord.indexOf(b.k) + 1 || 999) : (a.t === b.t ? 0 : a.t < b.t ? -1 : 1));
+    const allBtn = h("button", "small", "הצגת כל התכנים כאן (" + items.length + ")");
+    allBtn.type = "button";
+    allBtn.style.marginBottom = "14px";
+    allBtn.onclick = () => { showAll = true; renderBrowse(); };
+    box.append(allBtn);
+    list.forEach((g) => {
+      const b = h("button", "item");
+      b.type = "button";
+      b.append(h("h3", null, step.name(g.k)), h("div", "meta", g.n + " תכנים"));
+      b.onclick = () => { path.push(g.k); renderBrowse(); };
+      box.append(b);
+    });
+  }
+
+  async function loadLibrary() {
+    $("itemsList").replaceChildren(h("p", "muted", "טוענים…"));
+    await loadMeta();
+    const { data, error } = await db.from("items").select("id,kind,title,author,summary,created_at,category_id,rebbe_id,content_date").order("created_at", { ascending: false });
+    if (error) { $("itemsList").replaceChildren(h("p", "msg error", "לא הצלחנו לטעון את התכנים.")); return; }
+    all = data;
+    $("q").value = "";
+    renderBrowse();
+  }
+
+  $("cal").onchange = (e) => { cal = e.target.value; renderBrowse(); };
+
+  $("searchForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const t = $("q").value.trim().replace(/[%_*,()]/g, "");
+    if (!t) { renderBrowse(); return; }
+    const box = $("itemsList"), cr = $("crumbs");
+    box.replaceChildren(h("p", "muted", "מחפשים…"));
+    cr.replaceChildren();
+    const clear = h("button", "small", "ניקוי חיפוש");
+    clear.type = "button";
+    clear.onclick = () => { $("q").value = ""; renderBrowse(); };
+    cr.append(clear);
+    const w = "*" + t + "*";
+    const { data, error } = await db.from("items").select("id,kind,title,author,summary,created_at,category_id")
+      .or("title.ilike." + w + ",author.ilike." + w + ",summary.ilike." + w + ",body.ilike." + w)
+      .order("created_at", { ascending: false }).limit(50);
+    box.replaceChildren();
+    if (error) { box.append(h("p", "msg error", "החיפוש נכשל.")); return; }
+    if (!data.length) { box.append(h("p", "muted", "לא נמצאו תוצאות.")); return; }
+    data.forEach((it) => box.append(itemCard(it)));
   });
 
   function mediaEl(url) {
@@ -313,32 +400,94 @@
     const { data, error } = await db.from("items").select("*").eq("id", id).maybeSingle();
     box.replaceChildren();
     if (error || !data) { box.append(h("p", "msg error", "התוכן לא נמצא.")); return; }
-    box.append(h("div", "kind", KINDS[data.kind] || ""), h("h2", null, data.title));
+    box.append(h("div", "kind", cats[data.category_id] || KINDS[data.kind] || ""), h("h2", null, data.title));
     if (data.author) box.append(h("div", "meta", "מאת " + data.author));
+    const info = [rebbeName[data.rebbe_id], data.content_date && new Date(data.content_date + "T12:00:00").toLocaleDateString("he-u-ca-hebrew", { day: "numeric", month: "long", year: "numeric" })].filter(Boolean).join(", ");
+    if (info) box.append(h("div", "meta", info));
     box.append(favButton(id));
     db.from("history").upsert({ user_id: me.id, item_id: id, opened_at: new Date().toISOString() }, { onConflict: "user_id,item_id" }).then(() => {});
     const m = mediaEl(data.media_url);
     if (m) box.append(m);
+    if (data.file_path) {
+      const { data: su } = await db.storage.from("files").createSignedUrl(data.file_path, 3600);
+      if (su) {
+        const wrap = h("div", "media");
+        if (/\.(png|jpe?g|gif|webp)$/i.test(data.file_path)) {
+          const im = document.createElement("img");
+          im.src = su.signedUrl; im.alt = data.title; im.style.maxWidth = "100%";
+          wrap.append(im);
+        } else {
+          const f = document.createElement("iframe");
+          f.src = su.signedUrl; f.title = data.title; f.style.height = "80vh"; f.style.aspectRatio = "auto";
+          wrap.append(f);
+        }
+        const a = h("a", "btn", "פתיחה בחלון חדש");
+        a.href = su.signedUrl; a.target = "_blank"; a.rel = "noopener";
+        wrap.append(a);
+        box.append(wrap);
+      }
+    }
     (data.body || "").split(/\n{2,}/).filter(Boolean).forEach((p) => box.append(h("p", "body", p)));
   }
   $("backBtn").onclick = () => show("libraryView");
 
   /* ---------- ניהול תכנים ---------- */
+  async function loadAdmin() {
+    await loadMeta();
+    const opt = (sel, list, first) => { sel.replaceChildren(new Option(first, "")); list.forEach((x) => sel.append(new Option(x.name, x.id))); };
+    opt($("iCat"), catList, "ללא קטגוריה");
+    opt($("iRebbe"), rebbeList, "ללא רבי");
+    manageBox($("catManage"), "categories", catList);
+    manageBox($("rebbeManage"), "rebbes", rebbeList);
+    loadAdminList();
+  }
+
+  function manageBox(box, table, list) {
+    box.replaceChildren();
+    list.forEach((x) => {
+      const row = h("div", "row");
+      row.append(h("span", null, x.name));
+      const d = h("button", "del", "מחיקה");
+      d.type = "button";
+      d.onclick = async () => {
+        if (!confirm("למחוק את “" + x.name + "”? התכנים עצמם לא יימחקו.")) return;
+        const { error } = await db.from(table).delete().eq("id", x.id);
+        if (error) say($("itemMsg"), "המחיקה נכשלה.", "error"); else loadAdmin();
+      };
+      row.append(d);
+      box.append(row);
+    });
+  }
+
+  [["catForm", "catName", "categories"], ["rebbeForm", "rebbeName", "rebbes"]].forEach(([f, i, t]) =>
+    $(f).addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const name = $(i).value.trim();
+      if (!name) return;
+      const { error } = await db.from(t).insert({ name });
+      if (error) { say($("itemMsg"), "ההוספה נכשלה (אולי השם כבר קיים).", "error"); return; }
+      $(i).value = "";
+      loadAdmin();
+    }));
+
   async function loadAdminList() {
     const box = $("adminList");
-    const { data, error } = await db.from("items").select("id,kind,title").order("created_at", { ascending: false });
+    const { data, error } = await db.from("items").select("id,title,file_path,category_id").order("created_at", { ascending: false });
     box.replaceChildren();
     if (error) { box.append(h("p", "msg error", "לא הצלחנו לטעון את הרשימה.")); return; }
     if (!data.length) { box.append(h("p", "muted", "עדיין לא נוספו תכנים.")); return; }
     data.forEach((it) => {
       const row = h("div", "row");
-      row.append(h("span", null, (KINDS[it.kind] || "") + ": " + it.title));
+      row.append(h("span", null, (cats[it.category_id] ? cats[it.category_id] + ": " : "") + it.title));
       const d = h("button", "del", "מחיקה");
       d.type = "button";
       d.onclick = async () => {
         if (!confirm("למחוק את “" + it.title + "”?")) return;
         const { error: err } = await db.from("items").delete().eq("id", it.id);
-        if (err) say($("itemMsg"), "המחיקה נכשלה.", "error"); else { say($("itemMsg"), "התוכן נמחק.", "ok"); loadAdminList(); }
+        if (err) { say($("itemMsg"), "המחיקה נכשלה.", "error"); return; }
+        if (it.file_path) await db.storage.from("files").remove([it.file_path]);
+        say($("itemMsg"), "התוכן נמחק.", "ok");
+        loadAdminList();
       };
       row.append(d);
       box.append(row);
@@ -351,13 +500,24 @@
     if (media && !/^https:\/\//i.test(media)) { say($("itemMsg"), "הקישור חייב להתחיל ב־https://", "error"); return; }
     const btn = $("itemSave");
     btn.disabled = true;
+    let file_path = null;
+    const f = $("iFile").files[0];
+    if (f) {
+      file_path = crypto.randomUUID() + ((f.name.match(/\.[A-Za-z0-9]+$/) || [""])[0].toLowerCase());
+      const up = await db.storage.from("files").upload(file_path, f, { contentType: f.type || undefined });
+      if (up.error) { btn.disabled = false; say($("itemMsg"), "העלאת הקובץ נכשלה. בדקי שהוא קטן מ־50MB.", "error"); return; }
+    }
+    const kind = /youtu|\.(mp4|webm)(\?|$)/i.test(media) ? "video" : /\.(mp3|m4a|wav|ogg)(\?|$)/i.test(media) ? "audio" : "article";
     const row = {
-      kind: $("iKind").value,
+      kind, file_path,
       title: $("iTitle").value.trim(),
       author: $("iAuthor").value.trim() || null,
       summary: $("iSummary").value.trim() || null,
       body: $("iBody").value.trim() || null,
-      media_url: media || null
+      media_url: media || null,
+      category_id: $("iCat").value || null,
+      rebbe_id: $("iRebbe").value || null,
+      content_date: $("iDate").value || null
     };
     const { error } = await db.from("items").insert(row);
     btn.disabled = false;
@@ -536,9 +696,9 @@
   $("backAcc").onclick = () => show("accountView");
 
   /* ---------- ניווט ומצב התחברות ---------- */
-  $("navLib").onclick = () => { show("libraryView"); loadLibrary(); };
+  $("navLib").onclick = () => { path = []; showAll = false; show("libraryView"); loadLibrary(); };
   $("navAcc").onclick = () => { say($("profileMsg"), ""); show("accountView"); loadAccountLists(); loadSharedWith(); loadSharedToMe(); };
-  $("navAdmin").onclick = () => { show("adminView"); loadAdminList(); };
+  $("navAdmin").onclick = () => { show("adminView"); loadAdmin(); };
   $("logoutBtn").onclick = () => db.auth.signOut();
 
   async function enterApp(user) {

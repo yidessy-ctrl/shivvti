@@ -75,6 +75,12 @@
   .bub.me .meta { color:rgba(255,255,255,.75); }
   .bub .small { margin-top:6px; font-size:.85rem; }
   .badge { background:var(--gold); color:#fff; border-radius:999px; padding:0 8px; font-size:.85rem; margin-inline-start:8px; }
+  .atabs { display:flex; flex-wrap:wrap; gap:6px; margin:12px 0; }
+  .atabs button { border:1px solid var(--line); background:#fff; padding:8px 14px; border-radius:8px; font:inherit; cursor:pointer; color:var(--ink); }
+  .atabs button[aria-selected="true"] { background:var(--ink); color:#fff; border-color:var(--ink); }
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; }
+  .stat { background:#fff; border:1px solid var(--line); border-radius:8px; padding:14px; text-align:center; cursor:pointer; font:inherit; color:inherit; }
+  .stat .num { font-size:1.8rem; font-weight:700; font-family:"Frank Ruhl Libre",serif; }
   [hidden] { display:none !important; }
 </style>
 </head>
@@ -209,9 +215,23 @@
     <p id="msgStatus" class="msg" role="status"></p>
   </section>
 
-  <section id="adminView" class="card" hidden>
-    <h2>הוספת תוכן</h2>
-    <form id="itemForm">
+  <section id="adminView" hidden>
+    <h2>ניהול</h2>
+    <div class="atabs" id="atabs" role="tablist">
+      <button data-tab="aOverview" aria-selected="true">סקירה</button>
+      <button data-tab="aContent" aria-selected="false">תכנים</button>
+      <button data-tab="aCats" aria-selected="false">קטגוריות ורבנים</button>
+      <button data-tab="aUsers" aria-selected="false">משתמשים<span class="badge" id="bUsers" hidden></span></button>
+      <button data-tab="aNotes" aria-selected="false">הערות משותפות<span class="badge" id="bNotes" hidden></span></button>
+      <button data-tab="aReports" aria-selected="false">דיווחים<span class="badge" id="bReports" hidden></span></button>
+    </div>
+    <p id="itemMsg" class="msg" role="status"></p>
+
+    <div class="card apanel" id="aOverview"></div>
+
+    <div class="card apanel" id="aContent" hidden>
+      <h2>הוספה ועריכה של תוכן</h2>
+      <form id="itemForm">
       <label for="iCat">קטגוריה</label>
       <select id="iCat"></select>
       <label for="iRebbe">רבי</label>
@@ -239,22 +259,34 @@
       <button id="itemSave" class="primary" type="submit">פרסום</button>
       <button id="cancelEdit" class="small" type="button" hidden style="margin-top:10px">ביטול עריכה</button>
     </form>
-    <p id="itemMsg" class="msg" role="status"></p>
-    <h2 class="sec">קטגוריות</h2>
-    <form id="catForm" class="inline"><input id="catName" placeholder="קטגוריה חדשה" aria-label="שם קטגוריה"><button class="small" type="submit">הוספה</button></form>
-    <div id="catManage"></div>
-    <h2 class="sec">רבנים</h2>
-    <form id="rebbeForm" class="inline"><input id="rebbeName" placeholder="שם חדש" aria-label="שם רבי"><button class="small" type="submit">הוספה</button></form>
-    <div id="rebbeManage"></div>
-    <h2 class="sec">תכנים קיימים</h2>
-    <div id="adminList"></div>
-    <h2 class="sec">משתמשים</h2>
-    <input id="userFilter" placeholder="סינון לפי שם או אימייל" aria-label="סינון משתמשים">
-    <div id="userList"></div>
-    <h2 class="sec">הערות משותפות אחרונות</h2>
-    <div id="modNotes"></div>
-    <h2 class="sec">דיווחים על הודעות</h2>
-    <div id="reportList"></div>
+      <h2 class="sec">תכנים קיימים</h2>
+      <div id="adminList"></div>
+    </div>
+
+    <div class="card apanel" id="aCats" hidden>
+      <h2>קטגוריות</h2>
+      <form id="catForm" class="inline"><input id="catName" placeholder="קטגוריה חדשה" aria-label="שם קטגוריה"><button class="small" type="submit">הוספה</button></form>
+      <div id="catManage"></div>
+      <h2 class="sec">רבנים</h2>
+      <form id="rebbeForm" class="inline"><input id="rebbeName" placeholder="שם חדש" aria-label="שם רבי"><button class="small" type="submit">הוספה</button></form>
+      <div id="rebbeManage"></div>
+    </div>
+
+    <div class="card apanel" id="aUsers" hidden>
+      <h2>משתמשים</h2>
+      <input id="userFilter" placeholder="סינון לפי שם או אימייל" aria-label="סינון משתמשים">
+      <div id="userList"></div>
+    </div>
+
+    <div class="card apanel" id="aNotes" hidden>
+      <h2>הערות משותפות אחרונות</h2>
+      <div id="modNotes"></div>
+    </div>
+
+    <div class="card apanel" id="aReports" hidden>
+      <h2>דיווחים על הודעות</h2>
+      <div id="reportList"></div>
+    </div>
   </section>
 </main>
 
@@ -653,6 +685,7 @@
   }
 
   async function loadReports() {
+    refreshAdminBadges();
     const box = $("reportList");
     box.replaceChildren(h("p", "muted", "טוענים…"));
     const { data, error } = await db.from("reports").select("id,reporter_id,reported_id,message_body,reason,created_at").eq("resolved", false).order("created_at", { ascending: false });
@@ -683,6 +716,76 @@
       row.append(info, act);
       box.append(row);
     });
+  }
+
+  const seenAt = (t) => {
+    let v = localStorage.getItem("adminSeen_" + t);
+    if (!v) { v = new Date().toISOString(); localStorage.setItem("adminSeen_" + t, v); }
+    return v;
+  };
+  const markSeen = (t) => localStorage.setItem("adminSeen_" + t, new Date().toISOString());
+  const countOf = (q) => q.then((r) => r.count || 0);
+  const head = (table) => db.from(table).select("id", { count: "exact", head: true });
+  function setBadge(id, n) { const b = $(id); b.textContent = String(n); b.hidden = !n; }
+
+  async function refreshAdminBadges() {
+    if (!isAdmin || !me) return;
+    const [rep, usr, nts] = await Promise.all([
+      countOf(head("reports").eq("resolved", false)),
+      countOf(head("profiles").gt("created_at", seenAt("users"))),
+      countOf(head("notes").eq("shared", true).neq("user_id", me.id).gt("created_at", seenAt("notes")))
+    ]);
+    setBadge("bReports", rep);
+    setBadge("bUsers", usr);
+    setBadge("bNotes", nts);
+    const total = rep + usr + nts;
+    $("navAdmin").textContent = "ניהול" + (total ? " (" + total + ")" : "");
+  }
+
+  async function loadOverview() {
+    const box = $("aOverview");
+    box.replaceChildren(h("p", "muted", "טוענים…"));
+    const [items, reports, shared, users] = await Promise.all([
+      countOf(head("items")), countOf(head("reports").eq("resolved", false)),
+      countOf(head("notes").eq("shared", true)), db.rpc("admin_list_users")
+    ]);
+    const u = users.data || [], week = Date.now() - 7 * 864e5;
+    const cards = [
+      ["aUsers", "משתמשים", u.length],
+      ["aUsers", "חדשים בשבוע האחרון", u.filter((x) => new Date(x.created_at).getTime() > week).length],
+      ["aUsers", "חסומים", u.filter((x) => x.blocked).length],
+      ["aContent", "תכנים", items],
+      ["aNotes", "הערות משותפות", shared],
+      ["aReports", "דיווחים פתוחים", reports]
+    ];
+    const grid = h("div", "stats");
+    cards.forEach(([tab, label, n]) => {
+      const c = h("button", "stat");
+      c.type = "button";
+      c.append(h("div", "num", String(n)), h("div", "meta", label));
+      c.onclick = () => showTab(tab);
+      grid.append(c);
+    });
+    box.replaceChildren(h("h2", null, "סקירה"), grid);
+  }
+
+  function showTab(t) {
+    document.querySelectorAll("#atabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === t)));
+    document.querySelectorAll(".apanel").forEach((x) => { x.hidden = x.id !== t; });
+    saveState({ atab: t });
+    say($("itemMsg"), "");
+    if (t === "aOverview") loadOverview();
+    else if (t === "aUsers") { loadUsers(); markSeen("users"); }
+    else if (t === "aNotes") { loadSharedNotes(); markSeen("notes"); }
+    else if (t === "aReports") loadReports();
+    refreshAdminBadges();
+  }
+  document.querySelectorAll("#atabs button").forEach((b) => { b.onclick = () => showTab(b.dataset.tab); });
+
+  function openAdmin() {
+    show("adminView");
+    loadAdmin();
+    showTab(loadState().atab || "aOverview");
   }
 
   async function loadAdmin() {
@@ -1244,7 +1347,7 @@
   /* ---------- ניווט ומצב התחברות ---------- */
   $("navLib").onclick = () => { path = []; showAll = false; show("libraryView"); loadLibrary(); };
   $("navAcc").onclick = () => { say($("profileMsg"), ""); show("accountView"); loadAccountLists(); loadSharedWith(); loadSharedToMe(); };
-  $("navAdmin").onclick = () => { show("adminView"); loadAdmin(); loadUsers(); loadSharedNotes(); loadReports(); };
+  $("navAdmin").onclick = openAdmin;
   $("logoutBtn").onclick = () => db.auth.signOut();
 
   async function enterApp(user) {
@@ -1263,15 +1366,16 @@
     $("navAdmin").hidden = !isAdmin;
     $("nav").hidden = false;
     refreshUnread();
+    refreshAdminBadges();
     clearInterval(unreadT);
-    unreadT = setInterval(refreshUnread, 60000);
+    unreadT = setInterval(() => { refreshUnread(); refreshAdminBadges(); }, 60000);
     const st = loadState();
     if (st.cal) { cal = st.cal; $("cal").value = cal; }
     if (Array.isArray(st.path)) { path = st.path; showAll = !!st.showAll; }
     await loadLibrary();
     if (st.view === "itemView" && st.itemId) await openItem(st.itemId);
     else if (st.view === "accountView") { show("accountView"); loadAccountLists(); loadSharedWith(); loadSharedToMe(); }
-    else if (st.view === "adminView" && isAdmin) { show("adminView"); loadAdmin(); }
+    else if (st.view === "adminView" && isAdmin) openAdmin();
     else if (st.view === "sharedView" && st.sharedUser) await openShared(st.sharedUser);
     else if (st.view === "messagesView") { show("messagesView"); loadInbox(); }
     else if (st.view === "threadView" && st.thread) await openThread(st.thread);

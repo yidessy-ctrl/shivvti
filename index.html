@@ -8,10 +8,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Assistant:wght@400;600&display=swap" rel="stylesheet">
 <style>
-  :root { --ink:#14213d; --paper:#f7f8fb; --card:#fff; --line:#d9deea; --gold:#b8892b; --muted:#5b6477; --error:#a12b2b; --ok:#1f6b45; }
+  :root { --text:#14213d; --ink:#14213d; --paper:#f7f8fb; --card:#fff; --line:#d9deea; --gold:#b8892b; --muted:#5b6477; --error:#a12b2b; --ok:#1f6b45; }
   * { box-sizing: border-box; }
   html, body { margin: 0; }
-  body { font-family:"Assistant",system-ui,sans-serif; background:var(--paper); color:var(--ink); line-height:1.6; min-height:100vh; }
+  body { font-family:"Assistant",system-ui,sans-serif; background:var(--paper); color:var(--text); line-height:1.6; min-height:100vh; }
   header { background:var(--ink); color:#fff; padding:14px 24px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; border-bottom:4px solid var(--gold); }
   header h1 { margin:0; font-family:"Frank Ruhl Libre",serif; font-size:1.9rem; font-weight:700; }
   nav { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
@@ -25,9 +25,9 @@
   h3 { font-family:"Frank Ruhl Libre",serif; margin:0 0 4px; font-size:1.3rem; }
   .tabs { display:flex; gap:8px; margin-bottom:22px; }
   .tabs button { flex:1; padding:10px; font:inherit; font-weight:600; background:transparent; color:var(--muted); border:0; border-bottom:3px solid var(--line); cursor:pointer; }
-  .tabs button[aria-selected="true"] { color:var(--ink); border-bottom-color:var(--gold); }
+  .tabs button[aria-selected="true"] { color:var(--text); border-bottom-color:var(--gold); }
   label { display:block; font-weight:600; margin:14px 0 4px; }
-  input, textarea, select { width:100%; padding:10px 12px; font:inherit; border:1px solid var(--line); border-radius:6px; background:#fff; color:var(--ink); }
+  input, textarea, select { width:100%; padding:10px 12px; font:inherit; border:1px solid var(--line); border-radius:6px; background:var(--card); color:var(--text); }
   textarea { min-height:90px; resize:vertical; }
   #iBody { min-height:200px; }
   :focus-visible { outline:3px solid var(--gold); outline-offset:2px; }
@@ -40,25 +40,25 @@
   .muted, .meta { color:var(--muted); }
   .email { color:var(--muted); margin:-6px 0 8px; direction:ltr; text-align:right; }
   .chips { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px; }
-  .chips button { border:1px solid var(--line); background:#fff; padding:6px 16px; border-radius:999px; font:inherit; cursor:pointer; color:var(--ink); }
-  .chips button[aria-pressed="true"] { background:var(--ink); color:#fff; border-color:var(--ink); }
+  .chips button { border:1px solid var(--line); background:var(--card); padding:6px 16px; border-radius:999px; font:inherit; cursor:pointer; color:var(--text); }
+  .chips button[aria-pressed="true"] { background:var(--ink); color:#fff; border-color:var(--text); }
   .item { display:block; width:100%; text-align:right; background:var(--card); border:1px solid var(--line); border-inline-start:4px solid var(--gold); border-radius:8px; padding:16px 18px; margin-bottom:12px; cursor:pointer; font:inherit; color:inherit; }
   .item p { margin:6px 0 0; }
   .kind { color:var(--gold); font-weight:600; font-size:.95rem; }
-  .body { font-size:1.1rem; line-height:1.9; max-width:62ch; }
+  .body { font-size:calc(1.1rem * var(--fs, 1)); line-height:1.9; max-width:62ch; }
   .media { margin:18px 0; }
   .media iframe { width:100%; aspect-ratio:16/9; border:0; border-radius:8px; }
   .media audio, .media video { width:100%; }
   .row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); }
   .del { background:transparent; border:1px solid var(--error); color:var(--error); border-radius:6px; padding:4px 12px; font:inherit; cursor:pointer; }
-  .fav { margin:12px 0 4px; padding:6px 16px; border:1px solid var(--gold); background:#fff; color:var(--ink); border-radius:999px; font:inherit; cursor:pointer; }
+  .fav { margin:12px 0 4px; padding:6px 16px; border:1px solid var(--gold); background:var(--card); color:var(--text); border-radius:999px; font:inherit; cursor:pointer; }
   .fav[aria-pressed="true"] { background:var(--gold); color:#fff; }
   .sec { margin:28px 0 12px; font-size:1.4rem; }
   .check { display:flex; gap:10px; align-items:center; font-weight:600; margin:0 0 6px; }
   .check input { width:auto; }
   .sub { font-size:1.1rem; margin:22px 0 8px; }
   .inline { display:flex; gap:8px; }
-  .small { border:1px solid var(--ink); background:#fff; color:var(--ink); border-radius:6px; padding:4px 14px; font:inherit; cursor:pointer; white-space:nowrap; }
+  .small { border:1px solid var(--ink); background:var(--card); color:var(--text); border-radius:6px; padding:4px 14px; font:inherit; cursor:pointer; white-space:nowrap; }
   .favrow { margin-bottom:18px; }
   .favrow .item { margin-bottom:4px; }
   .favrow .check { margin:2px 4px 0; font-weight:400; }
@@ -70,17 +70,23 @@
   .nform > * { margin-top:8px; }
   .nform .primary { width:auto; padding:8px 22px; }
   .thread { display:flex; flex-direction:column; gap:8px; margin:14px 0; max-height:60vh; overflow-y:auto; }
-  .bub { max-width:82%; padding:8px 12px; border-radius:12px; border:1px solid var(--line); background:#fff; white-space:pre-wrap; align-self:flex-end; }
-  .bub.me { align-self:flex-start; background:var(--ink); color:#fff; border-color:var(--ink); }
+  .bub { max-width:82%; padding:8px 12px; border-radius:12px; border:1px solid var(--line); background:var(--card); white-space:pre-wrap; align-self:flex-end; }
+  .bub.me { align-self:flex-start; background:var(--ink); color:#fff; border-color:var(--text); }
   .bub.me .meta { color:rgba(255,255,255,.75); }
   .bub .small { margin-top:6px; font-size:.85rem; }
   .badge { background:var(--gold); color:#fff; border-radius:999px; padding:0 8px; font-size:.85rem; margin-inline-start:8px; }
   .atabs { display:flex; flex-wrap:wrap; gap:6px; margin:12px 0; }
-  .atabs button { border:1px solid var(--line); background:#fff; padding:8px 14px; border-radius:8px; font:inherit; cursor:pointer; color:var(--ink); }
-  .atabs button[aria-selected="true"] { background:var(--ink); color:#fff; border-color:var(--ink); }
+  .atabs button { border:1px solid var(--line); background:var(--card); padding:8px 14px; border-radius:8px; font:inherit; cursor:pointer; color:var(--text); }
+  .atabs button[aria-selected="true"] { background:var(--ink); color:#fff; border-color:var(--text); }
   .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; }
-  .stat { background:#fff; border:1px solid var(--line); border-radius:8px; padding:14px; text-align:center; cursor:pointer; font:inherit; color:inherit; }
+  .stat { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:14px; text-align:center; cursor:pointer; font:inherit; color:inherit; }
   .stat .num { font-size:1.8rem; font-weight:700; font-family:"Frank Ruhl Libre",serif; }
+  body.dark { --text:#e6ebf7; --paper:#0e1420; --card:#18213a; --line:#2c3a5a; --muted:#9aa6c0; --ink:#2c4a8a; --gold:#d4a73f; --error:#ff8a8a; --ok:#6fd49b; }
+  .tbtn { background:transparent; color:#fff; border:1px solid rgba(255,255,255,.5); border-radius:6px; padding:6px 12px; font:inherit; cursor:pointer; }
+  .tools { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0; }
+  .tools .fav { margin:0; }
+  .badge.ok { background:var(--ok); }
+  @media print { header, .back, .tools, .nform, .del, .fav { display:none !important; } body { background:#fff; color:#000; } .card { border:0; } }
   [hidden] { display:none !important; }
 </style>
 </head>
@@ -95,6 +101,7 @@
     <button data-view="adminView" id="navAdmin" hidden>ניהול</button>
     <button id="logoutBtn" class="out">התנתקות</button>
   </nav>
+  <button id="themeBtn" class="tbtn" type="button">מצב כהה</button>
 </header>
 
 <main>
@@ -139,6 +146,7 @@
       <select id="cal" style="width:auto"><option value="heb">עברי</option><option value="greg">לועזי</option></select>
     </p>
     <p><button class="small" id="newBtn" type="button">התכנים החדשים ביותר</button></p>
+    <p class="meta" id="progress"></p>
     <div class="crumbs" id="crumbs"></div>
     <div id="itemsList"></div>
   </section>
@@ -297,7 +305,7 @@
   const VIEWS = ["authView","resetView","messagesView","threadView","libraryView","itemView","accountView","adminView","sharedView"];
   const KINDS = { article: "מאמר", audio: "שיעור שמע", video: "שיעור וידאו" };
   let me = null, isAdmin = false, filter = "all", mode = "login", favs = new Set();
-  let thread = null, pollT = null, unreadT = null, iBlocked = false, recovering = false, flashMsg = "", allUsers = [], all = [], path = [], showAll = false, cal = "heb", cats = {}, rebbeName = {}, catList = [], rebbeList = [];
+  let learned = new Set(), prevVisit = 0, thread = null, pollT = null, unreadT = null, iBlocked = false, recovering = false, flashMsg = "", allUsers = [], all = [], path = [], showAll = false, cal = "heb", cats = {}, rebbeName = {}, catList = [], rebbeList = [];
 
   function h(tag, cls, text) {
     const e = document.createElement(tag);
@@ -395,7 +403,10 @@
   function itemCard(it) {
     const b = h("button", "item");
     b.type = "button";
-    b.append(h("div", "kind", cats[it.category_id] || KINDS[it.kind] || ""), h("h3", null, it.title));
+    const t = h("h3", null, it.title);
+    if (learned.has(it.id)) t.append(h("span", "badge ok", "✓ נלמד"));
+    if (isNew(it)) t.append(h("span", "badge", "חדש"));
+    b.append(h("div", "kind", cats[it.category_id] || KINDS[it.kind] || ""), t);
     b.append(h("div", "meta", (it.author ? "מאת " + it.author + ", " : "") + "נוסף " + dual(it.created_at)));
     if (it.summary) b.append(h("p", null, it.summary));
     b.onclick = () => openItem(it.id);
@@ -441,12 +452,14 @@
       items = items.filter((it) => STEPS[i].key(it) === k);
       crumb(STEPS[i].name(k), () => { path = path.slice(0, i + 1); showAll = false; renderBrowse(); });
     });
+    $("progress").textContent = items.length ? "נלמדו " + items.filter((it) => learned.has(it.id)).length + " מתוך " + items.length + " תכנים" : "";
     if (!items.length) { box.append(h("p", "muted", isAdmin ? "עדיין אין תכנים. אפשר להוסיף בעמוד הניהול." : "עדיין אין תכנים כאן.")); return; }
     if (path.length >= STEPS.length || showAll) { items.forEach((it) => box.append(itemCard(it))); return; }
     const step = STEPS[path.length], groups = new Map();
     items.forEach((it) => {
-      const k = step.key(it), g = groups.get(k) || { k, n: 0, t: Infinity };
+      const k = step.key(it), g = groups.get(k) || { k, n: 0, l: 0, t: Infinity };
       g.n++;
+      if (learned.has(it.id)) g.l++;
       g.t = Math.min(g.t, dparts(it).t || Infinity);
       groups.set(k, g);
     });
@@ -460,7 +473,7 @@
     list.forEach((g) => {
       const b = h("button", "item");
       b.type = "button";
-      b.append(h("h3", null, step.name(g.k)), h("div", "meta", g.n + " תכנים"));
+      b.append(h("h3", null, step.name(g.k)), h("div", "meta", g.n + " תכנים" + (g.l ? ", נלמדו " + g.l : "")));
       b.onclick = () => { path.push(g.k); renderBrowse(); };
       box.append(b);
     });
@@ -472,6 +485,8 @@
     const { data, error } = await db.from("items").select("id,kind,title,author,summary,created_at,category_id,rebbe_id,content_date").order("created_at", { ascending: false });
     if (error) { $("itemsList").replaceChildren(h("p", "msg error", "לא הצלחנו לטעון את התכנים.")); return; }
     all = data;
+    const nn = all.filter(isNew).length;
+    $("newBtn").textContent = nn ? "התכנים החדשים (" + nn + ")" : "התכנים החדשים ביותר";
     $("q").value = "";
     renderBrowse();
   }
@@ -485,7 +500,7 @@
     back.onclick = () => renderBrowse();
     cr.append(back);
     box.replaceChildren();
-    all.slice(0, 20).forEach((it) => box.append(itemCard(it)));
+    (all.filter(isNew).length ? all.filter(isNew) : all.slice(0, 20)).forEach((it) => box.append(itemCard(it)));
   };
 
   $("searchForm").addEventListener("submit", async (e) => {
@@ -509,7 +524,20 @@
     data.forEach((it) => box.append(itemCard(it)));
   });
 
-  function mediaEl(url) {
+  function resumeFor(el, key) {
+    const k = "pos_" + key;
+    let last = 0;
+    el.addEventListener("loadedmetadata", () => {
+      const t = parseFloat(localStorage.getItem(k));
+      if (t > 5 && t < el.duration - 5) el.currentTime = t;
+    });
+    el.addEventListener("timeupdate", () => {
+      if (Math.abs(el.currentTime - last) > 5) { last = el.currentTime; localStorage.setItem(k, String(Math.floor(el.currentTime))); }
+    });
+    el.addEventListener("ended", () => localStorage.removeItem(k));
+  }
+
+  function mediaEl(url, key) {
     if (!url || !/^https:\/\//i.test(url)) return null;
     const wrap = h("div", "media");
     const yt = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([\w-]{11})/);
@@ -521,10 +549,10 @@
       wrap.append(f);
     } else if (/\.(mp3|m4a|wav|ogg)(\?|$)/i.test(url)) {
       const a = document.createElement("audio");
-      a.controls = true; a.src = url; wrap.append(a);
+      a.controls = true; a.src = url; resumeFor(a, key); wrap.append(a);
     } else if (/\.(mp4|webm)(\?|$)/i.test(url)) {
       const v = document.createElement("video");
-      v.controls = true; v.src = url; wrap.append(v);
+      v.controls = true; v.src = url; resumeFor(v, key); wrap.append(v);
     } else {
       const a = h("a", "btn", "פתיחת הקישור");
       a.href = url; a.target = "_blank"; a.rel = "noopener"; wrap.append(a);
@@ -545,9 +573,14 @@
     const info = [rebbeName[data.rebbe_id], data.content_date && "תאריך: " + dual(data.content_date)].filter(Boolean).join(", ");
     if (info) box.append(h("div", "meta", info));
     box.append(h("div", "meta", "נוסף לאתר: " + dual(data.created_at)));
-    box.append(favButton(id));
+    const tools = h("div", "tools");
+    const pr = h("button", "small", "הדפסה");
+    pr.type = "button";
+    pr.onclick = () => window.print();
+    tools.append(favButton(id), learnedButton(id), fontBtn("א−", -0.1), fontBtn("א+", 0.1), pr);
+    box.append(tools);
     db.from("history").upsert({ user_id: me.id, item_id: id, opened_at: new Date().toISOString() }, { onConflict: "user_id,item_id" }).then(() => {});
-    const m = mediaEl(data.media_url);
+    const m = mediaEl(data.media_url, id);
     if (m) box.append(m);
     if (data.file_path) {
       const { data: su } = await db.storage.from("files").createSignedUrl(data.file_path, 3600);
@@ -1072,6 +1105,52 @@
     }
   }
 
+  /* ---------- נלמד, גודל טקסט, מצב כהה ---------- */
+  const isNew = (it) => prevVisit && new Date(it.created_at).getTime() > prevVisit;
+
+  function learnedButton(id) {
+    const b = h("button", "fav");
+    b.type = "button";
+    const paint = () => {
+      const on = learned.has(id);
+      b.textContent = on ? "✓ נלמד" : "סימון כנלמד";
+      b.setAttribute("aria-pressed", String(on));
+    };
+    paint();
+    b.onclick = async () => {
+      b.disabled = true;
+      if (learned.has(id)) {
+        const { error } = await db.from("learned").delete().eq("user_id", me.id).eq("item_id", id);
+        if (!error) learned.delete(id);
+      } else {
+        const { error } = await db.from("learned").insert({ user_id: me.id, item_id: id });
+        if (!error) learned.add(id);
+      }
+      b.disabled = false;
+      paint();
+    };
+    return b;
+  }
+
+  let fs = parseFloat(localStorage.getItem("fs")) || 1;
+  const applyFs = () => document.documentElement.style.setProperty("--fs", String(fs));
+  applyFs();
+  function fontBtn(label, d) {
+    const b = h("button", "small", label);
+    b.type = "button";
+    b.onclick = () => { fs = Math.min(1.8, Math.max(0.8, +(fs + d).toFixed(1))); localStorage.setItem("fs", String(fs)); applyFs(); };
+    return b;
+  }
+
+  const paintTheme = () => { $("themeBtn").textContent = document.body.classList.contains("dark") ? "מצב בהיר" : "מצב כהה"; };
+  if (localStorage.getItem("theme") === "dark") document.body.classList.add("dark");
+  paintTheme();
+  $("themeBtn").onclick = () => {
+    const d = document.body.classList.toggle("dark");
+    localStorage.setItem("theme", d ? "dark" : "light");
+    paintTheme();
+  };
+
   /* ---------- מועדפים והמשך מהמקום שעצרתי ---------- */
   function favButton(id) {
     const b = h("button", "fav");
@@ -1358,6 +1437,15 @@
     isAdmin = !!(data && data.is_admin);
     const { data: fv } = await db.from("favorites").select("item_id").eq("user_id", user.id);
     favs = new Set((fv || []).map((r) => r.item_id));
+    const { data: ld } = await db.from("learned").select("item_id").eq("user_id", user.id);
+    learned = new Set((ld || []).map((r) => r.item_id));
+    let prev = sessionStorage.getItem("prev_" + user.id);
+    if (!prev) {
+      prev = localStorage.getItem("visit_" + user.id) || String(Date.now());
+      sessionStorage.setItem("prev_" + user.id, prev);
+      localStorage.setItem("visit_" + user.id, String(Date.now()));
+    }
+    prevVisit = +prev;
     $("pName").value = (data && data.full_name) || "";
     $("pBio").value = (data && data.bio) || "";
     $("accountEmail").textContent = user.email;
@@ -1384,7 +1472,7 @@
   }
 
   function leaveApp() {
-    me = null; isAdmin = false; favs = new Set();
+    me = null; isAdmin = false; favs = new Set(); learned = new Set();
     try { sessionStorage.removeItem(SS); } catch (e) {}
     clearInterval(unreadT);
     clearInterval(pollT);

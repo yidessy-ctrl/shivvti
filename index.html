@@ -232,6 +232,7 @@
       <button data-tab="aUsers" aria-selected="false">משתמשים<span class="badge" id="bUsers" hidden></span></button>
       <button data-tab="aNotes" aria-selected="false">הערות משותפות<span class="badge" id="bNotes" hidden></span></button>
       <button data-tab="aReports" aria-selected="false">דיווחים<span class="badge" id="bReports" hidden></span></button>
+      <button data-tab="aStats" aria-selected="false">סטטיסטיקות</button>
     </div>
     <p id="itemMsg" class="msg" role="status"></p>
 
@@ -258,16 +259,28 @@
       <input id="iAuthor">
       <label for="iSummary">תקציר קצר</label>
       <input id="iSummary">
-      <label for="iFile">קובץ במראה המקורי (PDF או תמונה)</label>
-      <input id="iFile" type="file" accept=".pdf,image/*">
+      <label for="iFile">קבצים במראה המקורי (PDF או תמונות, אפשר כמה)</label>
+      <input id="iFile" type="file" multiple accept=".pdf,image/*">
+      <div id="attachList"></div>
       <label for="iMedia">קישור לשמע או לוידאו (https://)</label>
       <input id="iMedia" dir="ltr">
       <label for="iBody">טקסט (פסקאות מופרדות בשורה ריקה)</label>
       <textarea id="iBody"></textarea>
-      <button id="itemSave" class="primary" type="submit">פרסום</button>
+      <label for="iStatus">מצב פרסום</label>
+      <select id="iStatus">
+        <option value="now">פרסום עכשיו</option>
+        <option value="draft">טיוטה (רק מנהלת רואה)</option>
+        <option value="sched">פרסום מתוזמן</option>
+      </select>
+      <div id="schedRow" hidden>
+        <label for="iWhen">תאריך ושעה לפרסום</label>
+        <input id="iWhen" type="datetime-local">
+      </div>
+      <button id="itemSave" class="primary" type="submit">שמירה</button>
       <button id="cancelEdit" class="small" type="button" hidden style="margin-top:10px">ביטול עריכה</button>
     </form>
       <h2 class="sec">תכנים קיימים</h2>
+      <input id="adminFilter" placeholder="סינון לפי כותרת או קטגוריה" aria-label="סינון תכנים">
       <div id="adminList"></div>
     </div>
 
@@ -289,6 +302,12 @@
     <div class="card apanel" id="aNotes" hidden>
       <h2>הערות משותפות אחרונות</h2>
       <div id="modNotes"></div>
+    </div>
+
+    <div class="card apanel" id="aStats" hidden>
+      <h2>התכנים הנפתחים ביותר</h2>
+      <p class="meta">מספר המשתמשים שפתחו כל תוכן, שמרו אותו במועדפים וסימנו אותו כנלמד. אלה סכומים בלבד, בלי שמות.</p>
+      <div id="statList"></div>
     </div>
 
     <div class="card apanel" id="aReports" hidden>
@@ -406,6 +425,8 @@
     const t = h("h3", null, it.title);
     if (learned.has(it.id)) t.append(h("span", "badge ok", "✓ נלמד"));
     if (isNew(it)) t.append(h("span", "badge", "חדש"));
+    if (it.status === "draft") t.append(h("span", "badge", "טיוטה"));
+    else if (it.publish_at && new Date(it.publish_at) > new Date()) t.append(h("span", "badge", "מתוזמן"));
     b.append(h("div", "kind", cats[it.category_id] || KINDS[it.kind] || ""), t);
     b.append(h("div", "meta", (it.author ? "מאת " + it.author + ", " : "") + "נוסף " + dual(it.created_at)));
     if (it.summary) b.append(h("p", null, it.summary));
@@ -482,7 +503,7 @@
   async function loadLibrary() {
     $("itemsList").replaceChildren(h("p", "muted", "טוענים…"));
     await loadMeta();
-    const { data, error } = await db.from("items").select("id,kind,title,author,summary,created_at,category_id,rebbe_id,content_date").order("created_at", { ascending: false });
+    const { data, error } = await db.from("items").select("id,kind,title,author,summary,created_at,category_id,rebbe_id,content_date,status,publish_at").order("created_at", { ascending: false });
     if (error) { $("itemsList").replaceChildren(h("p", "msg error", "לא הצלחנו לטעון את התכנים.")); return; }
     all = data;
     const nn = all.filter(isNew).length;
@@ -580,32 +601,33 @@
     tools.append(favButton(id), learnedButton(id), fontBtn("א−", -0.1), fontBtn("א+", 0.1), pr);
     box.append(tools);
     db.from("history").upsert({ user_id: me.id, item_id: id, opened_at: new Date().toISOString() }, { onConflict: "user_id,item_id" }).then(() => {});
+    const fl = [...(data.file_path ? [{ path: data.file_path, name: "" }] : []), ...(data.files || [])];
     const m = mediaEl(data.media_url, id);
     if (m) box.append(m);
-    if (data.file_path) {
-      const { data: su } = await db.storage.from("files").createSignedUrl(data.file_path, 3600);
-      if (su) {
-        const wrap = h("div", "media");
-        if (/\.(png|jpe?g|gif|webp)$/i.test(data.file_path)) {
-          const im = document.createElement("img");
-          im.src = su.signedUrl; im.alt = data.title; im.style.maxWidth = "100%";
-          wrap.append(im);
-        } else {
-          const f = document.createElement("iframe");
-          f.src = su.signedUrl; f.title = data.title; f.style.height = "80vh"; f.style.aspectRatio = "auto";
-          wrap.append(f);
-        }
-        const a = h("a", "btn", "פתיחה בחלון חדש");
-        a.href = su.signedUrl; a.target = "_blank"; a.rel = "noopener";
-        wrap.append(a);
-        box.append(wrap);
+    for (const f of fl) {
+      const { data: su } = await db.storage.from("files").createSignedUrl(f.path, 3600);
+      if (!su) continue;
+      const wrap = h("div", "media");
+      if (f.name) wrap.append(h("div", "meta", f.name));
+      if (/\.(png|jpe?g|gif|webp)$/i.test(f.path)) {
+        const im = document.createElement("img");
+        im.src = su.signedUrl; im.alt = f.name || data.title; im.style.maxWidth = "100%";
+        wrap.append(im);
+      } else {
+        const fr = document.createElement("iframe");
+        fr.src = su.signedUrl; fr.title = f.name || data.title; fr.style.height = "80vh"; fr.style.aspectRatio = "auto";
+        wrap.append(fr);
       }
+      const a = h("a", "btn", "פתיחה בחלון חדש");
+      a.href = su.signedUrl; a.target = "_blank"; a.rel = "noopener";
+      wrap.append(a);
+      box.append(wrap);
     }
     (data.body || "").split(/\n{2,}/).filter(Boolean).forEach((p) => box.append(h("p", "body", p)));
     const nb = h("div");
     box.append(nb);
     lastSel = "";
-    renderNotes(nb, id, !!data.file_path);
+    renderNotes(nb, id, fl.length > 0);
   }
   $("backBtn").onclick = () => show("libraryView");
 
@@ -811,6 +833,7 @@
     else if (t === "aUsers") { loadUsers(); markSeen("users"); }
     else if (t === "aNotes") { loadSharedNotes(); markSeen("notes"); }
     else if (t === "aReports") loadReports();
+    else if (t === "aStats") loadStats();
     refreshAdminBadges();
   }
   document.querySelectorAll("#atabs button").forEach((b) => { b.onclick = () => showTab(b.dataset.tab); });
@@ -820,6 +843,24 @@
     loadAdmin();
     showTab(loadState().atab || "aOverview");
   }
+
+  async function loadStats() {
+    const box = $("statList");
+    box.replaceChildren(h("p", "muted", "טוענים…"));
+    const { data, error } = await db.rpc("admin_item_stats");
+    if (error) { box.replaceChildren(h("p", "msg error", "לא הצלחנו לטעון: " + error.message)); return; }
+    box.replaceChildren();
+    if (!data.length) { box.append(h("p", "muted", "עדיין אין תכנים.")); return; }
+    data.forEach((r) => {
+      const row = h("div", "row");
+      row.append(h("span", null, r.title), h("span", "meta", r.readers + " פתחו, " + r.favs + " במועדפים, " + r.learned + " נלמד"));
+      box.append(row);
+    });
+  }
+  $("adminFilter").oninput = () => {
+    const f = $("adminFilter").value.trim().toLowerCase();
+    document.querySelectorAll("#adminList .row").forEach((r) => { r.hidden = !!f && !(r.dataset.t || "").includes(f); });
+  };
 
   async function loadAdmin() {
     if ($("hY").options.length < 2) initHeb();
@@ -860,12 +901,34 @@
       loadAdmin();
     }));
 
-  let editId = null, editFile = null;
+  let editId = null, editFiles = [], removedFiles = [];
+  const toLocal = (v) => { const d = new Date(v); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
+  const stTxt = (it) => it.status === "draft" ? " [טיוטה]" : (it.publish_at && new Date(it.publish_at) > new Date() ? " [מתוזמן ל־" + dual(it.publish_at) + "]" : "");
+  function renderAttach() {
+    const box = $("attachList");
+    box.replaceChildren();
+    editFiles.forEach((f, i) => {
+      const row = h("div", "row");
+      row.append(h("span", null, f.name || "קובץ"));
+      const d = h("button", "del", "הסרה");
+      d.type = "button";
+      d.onclick = () => { removedFiles.push(f.path); editFiles.splice(i, 1); renderAttach(); };
+      row.append(d);
+      box.append(row);
+    });
+  }
+  $("iStatus").onchange = () => { $("schedRow").hidden = $("iStatus").value !== "sched"; };
   async function startEdit(id) {
     const { data, error } = await db.from("items").select("*").eq("id", id).maybeSingle();
     if (error || !data) { say($("itemMsg"), "לא הצלחנו לטעון את התוכן לעריכה.", "error"); return; }
     editId = id;
-    editFile = data.file_path;
+    editFiles = [...(data.file_path ? [{ path: data.file_path, name: "קובץ" }] : []), ...(data.files || [])];
+    removedFiles = [];
+    renderAttach();
+    const future = data.publish_at && new Date(data.publish_at) > new Date();
+    $("iStatus").value = data.status === "draft" ? "draft" : (future ? "sched" : "now");
+    $("schedRow").hidden = $("iStatus").value !== "sched";
+    $("iWhen").value = future ? toLocal(data.publish_at) : "";
     $("iCat").value = data.category_id || "";
     $("iRebbe").value = data.rebbe_id || "";
     $("iDate").value = data.content_date || "";
@@ -878,29 +941,33 @@
     $("iFile").value = "";
     $("itemSave").textContent = "שמירת שינויים";
     $("cancelEdit").hidden = false;
-    say($("itemMsg"), "עורכים את “" + data.title + "”." + (data.file_path ? " הקובץ הקיים יישאר, אלא אם תבחרו קובץ חדש." : ""), "ok");
+    say($("itemMsg"), "עורכים את “" + data.title + "”." + (data.file_path ? " הקבצים הקיימים יישארו, אלא אם תסירי אותם." : ""), "ok");
     $("itemForm").scrollIntoView({ behavior: "smooth" });
   }
   function endEdit() {
     editId = null;
-    editFile = null;
+    editFiles = [];
+    removedFiles = [];
+    $("attachList").replaceChildren();
+    $("schedRow").hidden = true;
     $("itemForm").reset();
     $("hM").replaceChildren();
     $("hD").replaceChildren();
-    $("itemSave").textContent = "פרסום";
+    $("itemSave").textContent = "שמירה";
     $("cancelEdit").hidden = true;
   }
   $("cancelEdit").onclick = () => { endEdit(); say($("itemMsg"), ""); };
 
   async function loadAdminList() {
     const box = $("adminList");
-    const { data, error } = await db.from("items").select("id,title,file_path,category_id,created_at").order("created_at", { ascending: false });
+    const { data, error } = await db.from("items").select("id,title,file_path,files,status,publish_at,category_id,created_at").order("created_at", { ascending: false });
     box.replaceChildren();
     if (error) { box.append(h("p", "msg error", "לא הצלחנו לטעון את הרשימה.")); return; }
     if (!data.length) { box.append(h("p", "muted", "עדיין לא נוספו תכנים.")); return; }
     data.forEach((it) => {
       const row = h("div", "row");
-      row.append(h("span", null, (cats[it.category_id] ? cats[it.category_id] + ": " : "") + it.title + " (נוסף " + dual(it.created_at) + ")"));
+      row.append(h("span", null, (cats[it.category_id] ? cats[it.category_id] + ": " : "") + it.title + stTxt(it) + " (נוסף " + dual(it.created_at) + ")"));
+      row.dataset.t = ((cats[it.category_id] || "") + " " + it.title).toLowerCase();
       const ed = h("button", "small", "עריכה");
       ed.type = "button";
       ed.onclick = () => startEdit(it.id);
@@ -911,7 +978,8 @@
         if (!confirm("למחוק את “" + it.title + "”?")) return;
         const { error: err } = await db.from("items").delete().eq("id", it.id);
         if (err) { say($("itemMsg"), "המחיקה נכשלה.", "error"); return; }
-        if (it.file_path) await db.storage.from("files").remove([it.file_path]);
+        const paths = [...(it.file_path ? [it.file_path] : []), ...(it.files || []).map((x) => x.path)];
+        if (paths.length) await db.storage.from("files").remove(paths);
         say($("itemMsg"), "התוכן נמחק.", "ok");
         loadAdminList();
       };
@@ -926,16 +994,20 @@
     if (media && !/^https:\/\//i.test(media)) { say($("itemMsg"), "הקישור חייב להתחיל ב־https://", "error"); return; }
     const btn = $("itemSave");
     btn.disabled = true;
-    let file_path = editId ? editFile : null;
-    const f = $("iFile").files[0];
-    if (f) {
-      file_path = crypto.randomUUID() + ((f.name.match(/\.[A-Za-z0-9]+$/) || [""])[0].toLowerCase());
-      const up = await db.storage.from("files").upload(file_path, f, { contentType: f.type || undefined });
+    const added = [];
+    for (const f of [...$("iFile").files]) {
+      const path = crypto.randomUUID() + ((f.name.match(/\.[A-Za-z0-9]+$/) || [""])[0].toLowerCase());
+      const up = await db.storage.from("files").upload(path, f, { contentType: f.type || undefined });
       if (up.error) { btn.disabled = false; say($("itemMsg"), "העלאת הקובץ נכשלה. בדקי שהוא קטן מ־50MB.", "error"); return; }
+      added.push({ path, name: f.name });
     }
+    const mode = $("iStatus").value;
+    if (mode === "sched" && !$("iWhen").value) { btn.disabled = false; say($("itemMsg"), "יש לבחור תאריך ושעה לפרסום.", "error"); return; }
     const kind = /youtu|\.(mp4|webm)(\?|$)/i.test(media) ? "video" : /\.(mp3|m4a|wav|ogg)(\?|$)/i.test(media) ? "audio" : "article";
     const row = {
-      kind, file_path,
+      kind, file_path: null, files: [...editFiles, ...added],
+      status: mode === "draft" ? "draft" : "published",
+      publish_at: mode === "sched" ? new Date($("iWhen").value).toISOString() : null,
       title: $("iTitle").value.trim(),
       author: $("iAuthor").value.trim() || null,
       summary: $("iSummary").value.trim() || null,
@@ -949,9 +1021,9 @@
     btn.disabled = false;
     if (error) { say($("itemMsg"), "השמירה נכשלה. בדקי שהכותרת מלאה ושיש לך הרשאת ניהול.", "error"); return; }
     const wasEdit = !!editId;
-    if (wasEdit && f && editFile) await db.storage.from("files").remove([editFile]);
+    if (removedFiles.length) await db.storage.from("files").remove(removedFiles);
     endEdit();
-    say($("itemMsg"), wasEdit ? "התוכן עודכן." : "התוכן פורסם.", "ok");
+    say($("itemMsg"), wasEdit ? "התוכן עודכן." : (mode === "draft" ? "הטיוטה נשמרה." : mode === "sched" ? "התוכן מתוזמן לפרסום." : "התוכן פורסם."), "ok");
     loadAdminList();
   });
 
@@ -1106,7 +1178,7 @@
   }
 
   /* ---------- נלמד, גודל טקסט, מצב כהה ---------- */
-  const isNew = (it) => prevVisit && new Date(it.created_at).getTime() > prevVisit;
+  const isNew = (it) => prevVisit && new Date(it.publish_at || it.created_at).getTime() > prevVisit;
 
   function learnedButton(id) {
     const b = h("button", "fav");

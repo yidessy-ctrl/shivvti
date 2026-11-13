@@ -69,6 +69,12 @@
   .note p { margin:0 0 6px; white-space:pre-wrap; }
   .nform > * { margin-top:8px; }
   .nform .primary { width:auto; padding:8px 22px; }
+  .thread { display:flex; flex-direction:column; gap:8px; margin:14px 0; max-height:60vh; overflow-y:auto; }
+  .bub { max-width:82%; padding:8px 12px; border-radius:12px; border:1px solid var(--line); background:#fff; white-space:pre-wrap; align-self:flex-end; }
+  .bub.me { align-self:flex-start; background:var(--ink); color:#fff; border-color:var(--ink); }
+  .bub.me .meta { color:rgba(255,255,255,.75); }
+  .bub .small { margin-top:6px; font-size:.85rem; }
+  .badge { background:var(--gold); color:#fff; border-radius:999px; padding:0 8px; font-size:.85rem; margin-inline-start:8px; }
   [hidden] { display:none !important; }
 </style>
 </head>
@@ -79,6 +85,7 @@
   <nav id="nav" hidden>
     <button data-view="libraryView" id="navLib">ספרייה</button>
     <button data-view="accountView" id="navAcc">האיזור שלי</button>
+    <button data-view="messagesView" id="navMsg">הודעות</button>
     <button data-view="adminView" id="navAdmin" hidden>ניהול</button>
     <button id="logoutBtn" class="out">התנתקות</button>
   </nav>
@@ -179,6 +186,29 @@
     <div id="sharedItems"></div>
   </section>
 
+  <section id="messagesView" hidden>
+    <h2>הודעות</h2>
+    <form id="msgSearchForm" class="inline">
+      <input id="msgQ" placeholder="הודעה חדשה: חיפוש משתמש לפי שם" aria-label="חיפוש משתמש">
+      <button class="small" type="submit">חיפוש</button>
+    </form>
+    <div id="msgResults"></div>
+    <h3 class="sub">שיחות</h3>
+    <div id="inbox"></div>
+  </section>
+
+  <section id="threadView" class="card" hidden>
+    <button class="back" id="backInbox">חזרה להודעות</button>
+    <h2 id="threadTitle"></h2>
+    <button class="small" id="blockBtn" type="button"></button>
+    <div class="thread" id="thread"></div>
+    <form id="msgForm">
+      <textarea id="msgBody" required maxlength="2000" aria-label="הודעה" placeholder="כתיבת הודעה"></textarea>
+      <button class="primary" type="submit">שליחה</button>
+    </form>
+    <p id="msgStatus" class="msg" role="status"></p>
+  </section>
+
   <section id="adminView" class="card" hidden>
     <h2>הוספת תוכן</h2>
     <form id="itemForm">
@@ -223,6 +253,8 @@
     <div id="userList"></div>
     <h2 class="sec">הערות משותפות אחרונות</h2>
     <div id="modNotes"></div>
+    <h2 class="sec">דיווחים על הודעות</h2>
+    <div id="reportList"></div>
   </section>
 </main>
 
@@ -230,10 +262,10 @@
 <script>
   const db = supabase.createClient("https://goxuttqosikycbskqhra.supabase.co", "sb_publishable__yAh-tm8u3VWggJGKRR-6Q_hvquy945");
   const $ = (id) => document.getElementById(id);
-  const VIEWS = ["authView","resetView","libraryView","itemView","accountView","adminView","sharedView"];
+  const VIEWS = ["authView","resetView","messagesView","threadView","libraryView","itemView","accountView","adminView","sharedView"];
   const KINDS = { article: "מאמר", audio: "שיעור שמע", video: "שיעור וידאו" };
   let me = null, isAdmin = false, filter = "all", mode = "login", favs = new Set();
-  let recovering = false, flashMsg = "", allUsers = [], all = [], path = [], showAll = false, cal = "heb", cats = {}, rebbeName = {}, catList = [], rebbeList = [];
+  let thread = null, pollT = null, unreadT = null, iBlocked = false, recovering = false, flashMsg = "", allUsers = [], all = [], path = [], showAll = false, cal = "heb", cats = {}, rebbeName = {}, catList = [], rebbeList = [];
 
   function h(tag, cls, text) {
     const e = document.createElement(tag);
@@ -258,7 +290,8 @@
   function show(v) {
     VIEWS.forEach((x) => { $(x).hidden = x !== v; });
     if (v !== "authView" && v !== "resetView") saveState({ view: v, scroll: 0 });
-    const hl = v === "itemView" ? "libraryView" : v === "sharedView" ? "accountView" : v;
+    if (v !== "threadView") { clearInterval(pollT); thread = null; }
+    const hl = v === "itemView" ? "libraryView" : v === "sharedView" ? "accountView" : v === "threadView" ? "messagesView" : v;
     document.querySelectorAll("nav button[data-view]").forEach((b) =>
       b.setAttribute("aria-current", String(b.dataset.view === hl)));
   }
@@ -615,6 +648,39 @@
         loadSharedNotes();
       };
       row.append(info, d);
+      box.append(row);
+    });
+  }
+
+  async function loadReports() {
+    const box = $("reportList");
+    box.replaceChildren(h("p", "muted", "טוענים…"));
+    const { data, error } = await db.from("reports").select("id,reporter_id,reported_id,message_body,reason,created_at").eq("resolved", false).order("created_at", { ascending: false });
+    if (error) { box.replaceChildren(h("p", "msg error", "לא הצלחנו לטעון דיווחים: " + error.message)); return; }
+    box.replaceChildren();
+    if (!data.length) { box.append(h("p", "muted", "אין דיווחים פתוחים.")); return; }
+    const ids = [...new Set(data.flatMap((r) => [r.reporter_id, r.reported_id]))];
+    const { data: ps } = await db.from("profiles").select("id,full_name").in("id", ids);
+    const nm = Object.fromEntries((ps || []).map((x) => [x.id, x.full_name || "משתמש"]));
+    data.forEach((r) => {
+      const row = h("div", "row"), info = h("div");
+      info.append(h("div", null, "“" + (r.message_body || "").slice(0, 200) + "”"));
+      info.append(h("div", "meta", "נשלח על ידי " + nm[r.reported_id] + ", דווח על ידי " + nm[r.reporter_id] + ", " + dual(r.created_at)));
+      if (r.reason) info.append(h("div", "meta", "סיבה: " + r.reason));
+      const act = h("div");
+      const blk = h("button", "del", "חסימת המשתמש");
+      blk.type = "button";
+      blk.onclick = async () => {
+        if (!confirm("לחסום את " + nm[r.reported_id] + "?")) return;
+        const { error: err } = await db.rpc("admin_set_blocked", { uid: r.reported_id, b: true });
+        if (err) say($("itemMsg"), "החסימה נכשלה: " + err.message, "error"); else loadUsers();
+      };
+      const done = h("button", "small", "סגירת הדיווח");
+      done.type = "button";
+      done.style.marginInlineStart = "8px";
+      done.onclick = async () => { await db.from("reports").update({ resolved: true }).eq("id", r.id); loadReports(); };
+      act.append(blk, done);
+      row.append(info, act);
       box.append(row);
     });
   }
@@ -1056,10 +1122,129 @@
   }
   $("backAcc").onclick = () => show("accountView");
 
+  /* ---------- הודעות פרטיות ---------- */
+  const nameOf = (p) => (p && p.full_name) || "משתמש";
+
+  async function refreshUnread() {
+    if (!me) return;
+    const { count } = await db.from("messages").select("id", { count: "exact", head: true }).eq("recipient_id", me.id).is("read_at", null);
+    $("navMsg").textContent = "הודעות" + (count ? " (" + count + ")" : "");
+  }
+
+  async function loadInbox() {
+    const box = $("inbox");
+    box.replaceChildren(h("p", "muted", "טוענים…"));
+    const { data, error } = await db.from("messages").select("sender_id,recipient_id,body,created_at,read_at").order("created_at", { ascending: false }).limit(300);
+    if (error) { box.replaceChildren(h("p", "msg error", "לא הצלחנו לטעון הודעות: " + error.message)); return; }
+    const convs = new Map();
+    data.forEach((m) => {
+      const other = m.sender_id === me.id ? m.recipient_id : m.sender_id;
+      const c = convs.get(other) || { id: other, last: m, unread: 0 };
+      if (m.recipient_id === me.id && !m.read_at) c.unread++;
+      convs.set(other, c);
+    });
+    box.replaceChildren();
+    if (!convs.size) { box.append(h("p", "muted", "אין עדיין שיחות. אפשר להתחיל שיחה דרך החיפוש למעלה.")); return; }
+    const { data: ps } = await db.from("profiles").select("id,full_name").in("id", [...convs.keys()]);
+    const nm = Object.fromEntries((ps || []).map((x) => [x.id, x.full_name]));
+    [...convs.values()].forEach((c) => {
+      const b = h("button", "item"), t = h("h3", null, nm[c.id] || "משתמש");
+      b.type = "button";
+      if (c.unread) t.append(h("span", "badge", String(c.unread)));
+      b.append(t, h("div", "meta", c.last.body.slice(0, 80)), h("div", "meta", dual(c.last.created_at)));
+      b.onclick = () => openThread({ id: c.id, full_name: nm[c.id] });
+      box.append(b);
+    });
+  }
+
+  $("msgSearchForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const t = $("msgQ").value.trim().replace(/[%_*,()]/g, ""), box = $("msgResults");
+    box.replaceChildren();
+    if (t.length < 2) { box.append(h("p", "muted", "כדאי להקליד לפחות שני תווים מהשם.")); return; }
+    const { data, error } = await db.from("profiles").select("id,full_name,bio").ilike("full_name", "%" + t + "%").neq("id", me.id).limit(10);
+    if (error) { box.append(h("p", "msg error", "החיפוש נכשל.")); return; }
+    if (!data.length) { box.append(h("p", "muted", "לא נמצאו משתמשים בשם הזה.")); return; }
+    data.forEach((u) => box.append(personRow(u, "פתיחת שיחה", () => openThread(u))));
+  });
+
+  async function refreshBlock() {
+    const { data } = await db.from("user_blocks").select("blocked_id").eq("blocker_id", me.id).eq("blocked_id", thread.id);
+    iBlocked = !!(data && data.length);
+    $("blockBtn").textContent = iBlocked ? "ביטול חסימה" : "חסימת המשתמש";
+  }
+
+  async function renderThread(scrollDown) {
+    if (!thread) return;
+    const box = $("thread"), pid = thread.id;
+    const { data, error } = await db.from("messages").select("id,sender_id,body,created_at")
+      .or("and(sender_id.eq." + me.id + ",recipient_id.eq." + pid + "),and(sender_id.eq." + pid + ",recipient_id.eq." + me.id + ")")
+      .order("created_at", { ascending: true }).limit(200);
+    if (error) { say($("msgStatus"), "לא הצלחנו לטעון הודעות: " + error.message, "error"); return; }
+    if (!thread || thread.id !== pid) return;
+    box.replaceChildren();
+    if (!data.length) box.append(h("p", "muted", "אין עדיין הודעות בשיחה הזו."));
+    data.forEach((m) => {
+      const mine = m.sender_id === me.id, b = h("div", "bub" + (mine ? " me" : ""));
+      b.append(h("div", null, m.body), h("div", "meta", dual(m.created_at)));
+      if (!mine) {
+        const r = h("button", "small", "דיווח");
+        r.type = "button";
+        r.onclick = () => reportMsg(m.id);
+        b.append(r);
+      }
+      box.append(b);
+    });
+    if (scrollDown) box.scrollTop = box.scrollHeight;
+    db.from("messages").update({ read_at: new Date().toISOString() }).eq("recipient_id", me.id).eq("sender_id", pid).is("read_at", null).then(() => refreshUnread());
+  }
+
+  async function openThread(p) {
+    thread = p;
+    show("threadView");
+    saveState({ thread: { id: p.id, full_name: p.full_name } });
+    $("threadTitle").textContent = nameOf(p);
+    $("msgStatus").textContent = "";
+    refreshBlock();
+    await renderThread(true);
+    clearInterval(pollT);
+    pollT = setInterval(() => renderThread(false), 8000);
+  }
+
+  $("msgForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const body = $("msgBody").value.trim();
+    if (!body || !thread) return;
+    const { error } = await db.from("messages").insert({ sender_id: me.id, recipient_id: thread.id, body });
+    if (error) { say($("msgStatus"), "אי אפשר לשלוח הודעה למשתמש הזה. ייתכן שהוא חסם אותך, או שהחשבון נחסם.", "error"); return; }
+    $("msgBody").value = "";
+    say($("msgStatus"), "");
+    renderThread(true);
+  });
+
+  async function reportMsg(id) {
+    const why = prompt("מה הסיבה לדיווח?");
+    if (why === null) return;
+    const { error } = await db.rpc("report_message", { mid: id, why });
+    say($("msgStatus"), error ? "הדיווח נכשל: " + error.message : "הדיווח נשלח למנהלת האתר. תודה.", error ? "error" : "ok");
+  }
+
+  $("blockBtn").onclick = async () => {
+    if (!thread) return;
+    if (iBlocked) await db.from("user_blocks").delete().eq("blocker_id", me.id).eq("blocked_id", thread.id);
+    else {
+      if (!confirm("לחסום את " + nameOf(thread) + "? לא תהיה אפשרות לשלוח הודעות זה לזו.")) return;
+      await db.from("user_blocks").insert({ blocker_id: me.id, blocked_id: thread.id });
+    }
+    refreshBlock();
+  };
+  $("backInbox").onclick = () => { show("messagesView"); loadInbox(); };
+  $("navMsg").onclick = () => { show("messagesView"); loadInbox(); };
+
   /* ---------- ניווט ומצב התחברות ---------- */
   $("navLib").onclick = () => { path = []; showAll = false; show("libraryView"); loadLibrary(); };
   $("navAcc").onclick = () => { say($("profileMsg"), ""); show("accountView"); loadAccountLists(); loadSharedWith(); loadSharedToMe(); };
-  $("navAdmin").onclick = () => { show("adminView"); loadAdmin(); loadUsers(); loadSharedNotes(); };
+  $("navAdmin").onclick = () => { show("adminView"); loadAdmin(); loadUsers(); loadSharedNotes(); loadReports(); };
   $("logoutBtn").onclick = () => db.auth.signOut();
 
   async function enterApp(user) {
@@ -1077,6 +1262,9 @@
     setHello($("pName").value);
     $("navAdmin").hidden = !isAdmin;
     $("nav").hidden = false;
+    refreshUnread();
+    clearInterval(unreadT);
+    unreadT = setInterval(refreshUnread, 60000);
     const st = loadState();
     if (st.cal) { cal = st.cal; $("cal").value = cal; }
     if (Array.isArray(st.path)) { path = st.path; showAll = !!st.showAll; }
@@ -1085,6 +1273,8 @@
     else if (st.view === "accountView") { show("accountView"); loadAccountLists(); loadSharedWith(); loadSharedToMe(); }
     else if (st.view === "adminView" && isAdmin) { show("adminView"); loadAdmin(); }
     else if (st.view === "sharedView" && st.sharedUser) await openShared(st.sharedUser);
+    else if (st.view === "messagesView") { show("messagesView"); loadInbox(); }
+    else if (st.view === "threadView" && st.thread) await openThread(st.thread);
     else show("libraryView");
     if (st.scroll) { const go = () => window.scrollTo(0, st.scroll); setTimeout(go, 150); setTimeout(go, 800); }
   }
@@ -1092,6 +1282,9 @@
   function leaveApp() {
     me = null; isAdmin = false; favs = new Set();
     try { sessionStorage.removeItem(SS); } catch (e) {}
+    clearInterval(unreadT);
+    clearInterval(pollT);
+    thread = null;
     $("nav").hidden = true;
     $("authForm").reset();
     setMode("login");

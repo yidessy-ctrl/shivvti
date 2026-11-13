@@ -102,7 +102,18 @@
       <input id="password" type="password" required minlength="6" autocomplete="current-password" dir="ltr">
       <button id="authSubmit" class="primary" type="submit">התחברות</button>
     </form>
+    <p><button type="button" id="forgotBtn" class="back">שכחתי סיסמה</button></p>
     <p id="authMsg" class="msg" role="status"></p>
+  </section>
+
+  <section id="resetView" class="card narrow" hidden>
+    <h2>בחירת סיסמה חדשה</h2>
+    <form id="resetForm">
+      <label for="newPw">סיסמה חדשה</label>
+      <input id="newPw" type="password" required minlength="6" autocomplete="new-password" dir="ltr">
+      <button class="primary" type="submit">שמירת הסיסמה</button>
+    </form>
+    <p id="resetMsg" class="msg" role="status"></p>
   </section>
 
   <section id="libraryView" hidden>
@@ -196,6 +207,7 @@
       <label for="iBody">טקסט (פסקאות מופרדות בשורה ריקה)</label>
       <textarea id="iBody"></textarea>
       <button id="itemSave" class="primary" type="submit">פרסום</button>
+      <button id="cancelEdit" class="small" type="button" hidden style="margin-top:10px">ביטול עריכה</button>
     </form>
     <p id="itemMsg" class="msg" role="status"></p>
     <h2 class="sec">קטגוריות</h2>
@@ -218,10 +230,10 @@
 <script>
   const db = supabase.createClient("https://goxuttqosikycbskqhra.supabase.co", "sb_publishable__yAh-tm8u3VWggJGKRR-6Q_hvquy945");
   const $ = (id) => document.getElementById(id);
-  const VIEWS = ["authView","libraryView","itemView","accountView","adminView","sharedView"];
+  const VIEWS = ["authView","resetView","libraryView","itemView","accountView","adminView","sharedView"];
   const KINDS = { article: "מאמר", audio: "שיעור שמע", video: "שיעור וידאו" };
   let me = null, isAdmin = false, filter = "all", mode = "login", favs = new Set();
-  let flashMsg = "", allUsers = [], all = [], path = [], showAll = false, cal = "heb", cats = {}, rebbeName = {}, catList = [], rebbeList = [];
+  let recovering = false, flashMsg = "", allUsers = [], all = [], path = [], showAll = false, cal = "heb", cats = {}, rebbeName = {}, catList = [], rebbeList = [];
 
   function h(tag, cls, text) {
     const e = document.createElement(tag);
@@ -245,7 +257,7 @@
   }
   function show(v) {
     VIEWS.forEach((x) => { $(x).hidden = x !== v; });
-    if (v !== "authView") saveState({ view: v, scroll: 0 });
+    if (v !== "authView" && v !== "resetView") saveState({ view: v, scroll: 0 });
     const hl = v === "itemView" ? "libraryView" : v === "sharedView" ? "accountView" : v;
     document.querySelectorAll("nav button[data-view]").forEach((b) =>
       b.setAttribute("aria-current", String(b.dataset.view === hl)));
@@ -259,6 +271,7 @@
     $("tabSignup").setAttribute("aria-selected", String(s));
     $("nameRow").hidden = !s;
     $("authSubmit").textContent = s ? "יצירת חשבון" : "התחברות";
+    $("forgotBtn").hidden = s;
     $("password").autocomplete = s ? "new-password" : "current-password";
     $("authMsg").textContent = "";
   }
@@ -270,9 +283,29 @@
     if (m.includes("invalid login")) return "האימייל או הסיסמה שגויים.";
     if (m.includes("already registered")) return "כבר קיים חשבון עם האימייל הזה. אפשר להתחבר.";
     if (m.includes("email not confirmed")) return "צריך לאשר את האימייל. בדקי את תיבת הדואר שלך.";
+    if (m.includes("different")) return "הסיסמה החדשה חייבת להיות שונה מהקודמת.";
+    if (m.includes("rate limit") || m.includes("seconds")) return "נשלחו יותר מדי בקשות. כדאי לנסות שוב בעוד כמה דקות.";
     if (m.includes("password")) return "הסיסמה חייבת להכיל לפחות 6 תווים.";
     return "משהו השתבש. נסי שוב בעוד רגע.";
   }
+
+  $("forgotBtn").onclick = async () => {
+    const email = $("email").value.trim();
+    if (!email) { say($("authMsg"), "יש לכתוב קודם את האימייל בשדה, ואז ללחוץ שוב על “שכחתי סיסמה”.", "error"); return; }
+    const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
+    if (error) say($("authMsg"), hebrewError(error), "error");
+    else say($("authMsg"), "אם קיים חשבון עם האימייל הזה, נשלח אליו קישור לאיפוס הסיסמה.", "ok");
+  };
+
+  $("resetForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const { error } = await db.auth.updateUser({ password: $("newPw").value });
+    if (error) { say($("resetMsg"), hebrewError(error), "error"); return; }
+    recovering = false;
+    $("resetForm").reset();
+    const { data: { session } } = await db.auth.getSession();
+    if (session) enterApp(session.user); else leaveApp();
+  });
 
   $("authForm").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -625,6 +658,38 @@
       loadAdmin();
     }));
 
+  let editId = null, editFile = null;
+  async function startEdit(id) {
+    const { data, error } = await db.from("items").select("*").eq("id", id).maybeSingle();
+    if (error || !data) { say($("itemMsg"), "לא הצלחנו לטעון את התוכן לעריכה.", "error"); return; }
+    editId = id;
+    editFile = data.file_path;
+    $("iCat").value = data.category_id || "";
+    $("iRebbe").value = data.rebbe_id || "";
+    $("iDate").value = data.content_date || "";
+    if (data.content_date) $("iDate").onchange();
+    $("iTitle").value = data.title;
+    $("iAuthor").value = data.author || "";
+    $("iSummary").value = data.summary || "";
+    $("iMedia").value = data.media_url || "";
+    $("iBody").value = data.body || "";
+    $("iFile").value = "";
+    $("itemSave").textContent = "שמירת שינויים";
+    $("cancelEdit").hidden = false;
+    say($("itemMsg"), "עורכים את “" + data.title + "”." + (data.file_path ? " הקובץ הקיים יישאר, אלא אם תבחרו קובץ חדש." : ""), "ok");
+    $("itemForm").scrollIntoView({ behavior: "smooth" });
+  }
+  function endEdit() {
+    editId = null;
+    editFile = null;
+    $("itemForm").reset();
+    $("hM").replaceChildren();
+    $("hD").replaceChildren();
+    $("itemSave").textContent = "פרסום";
+    $("cancelEdit").hidden = true;
+  }
+  $("cancelEdit").onclick = () => { endEdit(); say($("itemMsg"), ""); };
+
   async function loadAdminList() {
     const box = $("adminList");
     const { data, error } = await db.from("items").select("id,title,file_path,category_id,created_at").order("created_at", { ascending: false });
@@ -634,6 +699,10 @@
     data.forEach((it) => {
       const row = h("div", "row");
       row.append(h("span", null, (cats[it.category_id] ? cats[it.category_id] + ": " : "") + it.title + " (נוסף " + dual(it.created_at) + ")"));
+      const ed = h("button", "small", "עריכה");
+      ed.type = "button";
+      ed.onclick = () => startEdit(it.id);
+      row.append(ed);
       const d = h("button", "del", "מחיקה");
       d.type = "button";
       d.onclick = async () => {
@@ -655,7 +724,7 @@
     if (media && !/^https:\/\//i.test(media)) { say($("itemMsg"), "הקישור חייב להתחיל ב־https://", "error"); return; }
     const btn = $("itemSave");
     btn.disabled = true;
-    let file_path = null;
+    let file_path = editId ? editFile : null;
     const f = $("iFile").files[0];
     if (f) {
       file_path = crypto.randomUUID() + ((f.name.match(/\.[A-Za-z0-9]+$/) || [""])[0].toLowerCase());
@@ -674,13 +743,13 @@
       rebbe_id: $("iRebbe").value || null,
       content_date: $("iDate").value || null
     };
-    const { error } = await db.from("items").insert(row);
+    const { error } = editId ? await db.from("items").update(row).eq("id", editId) : await db.from("items").insert(row);
     btn.disabled = false;
-    if (error) { say($("itemMsg"), "הפרסום נכשל. בדקי שהכותרת מלאה ושיש לך הרשאת ניהול.", "error"); return; }
-    $("itemForm").reset();
-    $("hM").replaceChildren();
-    $("hD").replaceChildren();
-    say($("itemMsg"), "התוכן פורסם.", "ok");
+    if (error) { say($("itemMsg"), "השמירה נכשלה. בדקי שהכותרת מלאה ושיש לך הרשאת ניהול.", "error"); return; }
+    const wasEdit = !!editId;
+    if (wasEdit && f && editFile) await db.storage.from("files").remove([editFile]);
+    endEdit();
+    say($("itemMsg"), wasEdit ? "התוכן עודכן." : "התוכן פורסם.", "ok");
     loadAdminList();
   });
 
@@ -1031,7 +1100,9 @@
   }
 
   db.auth.onAuthStateChange((_event, session) => {
+    if (_event === "PASSWORD_RECOVERY") recovering = true;
     setTimeout(() => {
+      if (recovering) { show("resetView"); return; }
       if (session && session.user) enterApp(session.user); else leaveApp();
     }, 0);
   });

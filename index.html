@@ -96,6 +96,44 @@
   .rx button[aria-pressed="true"] { border-color:var(--gold); }
   .bub audio { width:100%; max-width:280px; margin-top:4px; }
   .bub.me .btn { background:#fff; color:#14213d; }
+  /* ===== soft theme v2 ===== */
+  :root { --text:#2c3550; --ink:#4d6290; --paper:#f6f4ef; --card:#ffffff; --line:#e4e0d6; --gold:#d8bf86; --accent:#8d6d24; --muted:#6a7186; --error:#b24545; --ok:#2f7a54; --tint:#eef1f8; }
+  body.dark { --text:#e8eaf2; --ink:#4a62a0; --paper:#121826; --card:#1b2336; --line:#2b3550; --gold:#c9ad6e; --accent:#d6b66a; --muted:#a4acc4; --error:#ff9b9b; --ok:#7fd8a6; --tint:#222c45; }
+  body { transition:background .2s; }
+  header { background:linear-gradient(135deg,#4d6290,#6a80ae); border-bottom:3px solid var(--gold); box-shadow:0 2px 12px rgba(60,75,110,.15); }
+  body.dark header { background:linear-gradient(135deg,#243052,#2f3d66); }
+  header h1 { font-weight:500; letter-spacing:.3px; }
+  main { max-width:820px; }
+  .card { border-radius:16px; box-shadow:0 4px 18px rgba(60,75,110,.08); }
+  .item { border-radius:14px; box-shadow:0 1px 6px rgba(60,75,110,.06); transition:box-shadow .15s, transform .15s; }
+  .item:hover { box-shadow:0 6px 18px rgba(60,75,110,.12); transform:translateY(-1px); }
+  input, textarea, select { border-radius:10px; }
+  .primary { border-radius:12px; }
+  .small, .chips button, .atabs button, .fav, .tbtn { border-radius:10px; }
+  .chips button { border-radius:999px; }
+  :focus-visible { outline:3px solid var(--accent); }
+  .kind { color:var(--accent); }
+  .badge, .fav[aria-pressed="true"] { background:var(--accent); }
+  body.dark .badge, body.dark .fav[aria-pressed="true"] { color:#1b2336; }
+  .badge.ok { background:var(--ok); }
+  .groups { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px; }
+  .groups .item { margin-bottom:0; }
+  .hero2 { background:linear-gradient(135deg,var(--tint),var(--card)); border:1px solid var(--line); border-radius:18px; padding:22px; margin-bottom:18px; }
+  .hero2 h2 { margin:0 0 4px; }
+  nav button { display:flex; flex-direction:column; align-items:center; gap:2px; }
+  nav .ic { font-size:1.15rem; line-height:1; }
+  nav .lb { font-size:.85rem; }
+  @media (min-width:721px) { nav button { flex-direction:row; gap:6px; } }
+  @media (max-width:720px) {
+    nav { position:fixed; inset:auto 0 0 0; background:var(--card); border-top:1px solid var(--line); justify-content:space-around; gap:0; padding:6px 4px calc(6px + env(safe-area-inset-bottom)); z-index:30; box-shadow:0 -4px 16px rgba(60,75,110,.1); }
+    nav button { color:var(--text); flex:1; padding:4px 2px; border-bottom:0; }
+    nav button[aria-current="true"] { color:var(--accent); font-weight:600; }
+    nav .lb { font-size:.78rem; }
+    body { padding-bottom:84px; }
+    main { margin:20px auto; }
+  }
+  @media print { nav { display:none !important; } }
+  @media (prefers-reduced-motion:reduce) { * { transition:none !important; } }
   [hidden] { display:none !important; }
 </style>
 </head>
@@ -104,13 +142,14 @@
 <header>
   <h1>שבתי<span class="badge" id="secBadge" hidden></span></h1>
   <nav id="nav" hidden>
-    <button data-view="libraryView" id="navLib">ספרייה</button>
-    <button data-view="accountView" id="navAcc">האיזור שלי</button>
-    <button data-view="notesView" id="navNotes">ההערות שלי</button>
-    <button data-view="messagesView" id="navMsg">הודעות</button>
-    <button data-view="adminView" id="navAdmin" hidden>ניהול</button>
-    <button id="logoutBtn" class="out">התנתקות</button>
+    <button data-view="homeView" id="navHome"><span class="ic">🏠</span><span class="lb">בית</span></button>
+    <button data-view="libraryView" id="navLib"><span class="ic">📚</span><span class="lb">ספרייה</span></button>
+    <button data-view="notesView" id="navNotes"><span class="ic">📝</span><span class="lb">הערות</span></button>
+    <button data-view="messagesView" id="navMsg"><span class="ic">💬</span><span class="lb">הודעות</span></button>
+    <button data-view="accountView" id="navAcc"><span class="ic">👤</span><span class="lb">אני</span></button>
+    <button data-view="adminView" id="navAdmin" hidden><span class="ic">⚙️</span><span class="lb">ניהול</span></button>
   </nav>
+  <button id="logoutBtn" class="tbtn" type="button" hidden>התנתקות</button>
   <button id="themeBtn" class="tbtn" type="button">מצב כהה</button>
 </header>
 
@@ -161,6 +200,23 @@
       <button class="primary" type="submit">שמירת הסיסמה</button>
     </form>
     <p id="resetMsg" class="msg" role="status"></p>
+  </section>
+
+  <section id="homeView" hidden>
+    <div class="hero2">
+      <h2 id="homeHello"></h2>
+      <p class="meta" id="homeSub"></p>
+      <form id="homeSearch" class="inline">
+        <input id="homeQ" placeholder="חיפוש בספרייה" aria-label="חיפוש בספרייה">
+        <button class="small" type="submit">חיפוש</button>
+      </form>
+    </div>
+    <h3 class="sub">המשך מהמקום שעצרת</h3>
+    <div id="homeRecent"></div>
+    <h3 class="sub">חדש באתר</h3>
+    <div id="homeNew"></div>
+    <h3 class="sub">המועדפים שלי</h3>
+    <div id="homeFavs"></div>
   </section>
 
   <section id="libraryView" hidden>
@@ -380,7 +436,7 @@
 <script>
   const db = supabase.createClient("https://goxuttqosikycbskqhra.supabase.co", "sb_publishable__yAh-tm8u3VWggJGKRR-6Q_hvquy945");
   const $ = (id) => document.getElementById(id);
-  const VIEWS = ["pickView","setSectionView","authView","resetView","notesView","messagesView","threadView","libraryView","itemView","accountView","adminView","sharedView"];
+  const VIEWS = ["homeView","pickView","setSectionView","authView","resetView","notesView","messagesView","threadView","libraryView","itemView","accountView","adminView","sharedView"];
   const KINDS = { article: "מאמר", audio: "שיעור שמע", video: "שיעור וידאו" };
   let me = null, isAdmin = false, filter = "all", mode = "login", favs = new Set();
   let pendingUser = null, mySection = null, lastSig = "", rec = null, recChunks = [], recTimer = null, recStart = 0, learned = new Set(), prevVisit = 0, thread = null, pollT = null, unreadT = null, iBlocked = false, recovering = false, flashMsg = "", allUsers = [], all = [], path = [], showAll = false, cal = "heb", cats = {}, rebbeName = {}, catList = [], rebbeList = [];
@@ -583,12 +639,14 @@
     allBtn.style.marginBottom = "14px";
     allBtn.onclick = () => { showAll = true; renderBrowse(); };
     box.append(allBtn);
+    const grid = h("div", "groups");
+    box.append(grid);
     list.forEach((g) => {
       const b = h("button", "item");
       b.type = "button";
       b.append(h("h3", null, step.name(g.k)), h("div", "meta", g.n + " תכנים" + (g.l ? ", נלמדו " + g.l : "")));
       b.onclick = () => { path.push(g.k); renderBrowse(); };
-      box.append(b);
+      grid.append(b);
     });
   }
 
@@ -894,7 +952,7 @@
     setBadge("bUsers", usr);
     setBadge("bNotes", nts);
     const total = rep + usr + nts;
-    $("navAdmin").textContent = "ניהול" + (total ? " (" + total + ")" : "");
+    $("navAdmin").querySelector(".lb").textContent = "ניהול" + (total ? " (" + total + ")" : "");
   }
 
   async function loadOverview() {
@@ -1608,7 +1666,7 @@
   async function refreshUnread() {
     if (!me) return;
     const { count } = await db.from("messages").select("id", { count: "exact", head: true }).eq("recipient_id", me.id).is("read_at", null);
-    $("navMsg").textContent = "הודעות" + (count ? " (" + count + ")" : "");
+    $("navMsg").querySelector(".lb").textContent = "הודעות" + (count ? " (" + count + ")" : "");
   }
 
   async function loadInbox() {
@@ -1846,6 +1904,33 @@
   $("backInbox").onclick = () => { show("messagesView"); loadInbox(); };
   $("navMsg").onclick = () => { show("messagesView"); loadInbox(); };
 
+  /* ---------- דף הבית ---------- */
+  async function loadHome() {
+    const nm = $("pName").value.trim();
+    $("homeHello").textContent = nm ? "שלום, " + nm : "שלום";
+    const done = all.filter((it) => learned.has(it.id)).length;
+    $("homeSub").textContent = all.length ? "נלמדו " + done + " מתוך " + all.length + " תכנים" : "";
+    const nb = $("homeNew"), fresh = all.filter(isNew), list = (fresh.length ? fresh : all).slice(0, 4);
+    nb.replaceChildren();
+    if (!list.length) nb.append(h("p", "muted", "עדיין אין תכנים."));
+    list.forEach((it) => nb.append(itemCard(it)));
+    const cols = "items(id,kind,title,author,summary,created_at)";
+    const [rec, fav] = await Promise.all([
+      db.from("history").select("opened_at," + cols).eq("user_id", me.id).order("opened_at", { ascending: false }).limit(3),
+      db.from("favorites").select("created_at," + cols).eq("user_id", me.id).order("created_at", { ascending: false }).limit(3)
+    ]);
+    fillList($("homeRecent"), rec, "עדיין לא נפתחו תכנים. תכנים שתפתחו יופיעו כאן.");
+    fillList($("homeFavs"), fav, "אין עדיין מועדפים. בעמוד של כל תוכן יש כפתור לשמירה.");
+  }
+  $("homeSearch").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const t = $("homeQ").value;
+    show("libraryView");
+    $("q").value = t;
+    $("searchForm").requestSubmit();
+  });
+  $("navHome").onclick = () => { show("homeView"); loadHome(); };
+
   /* ---------- ניווט ומצב התחברות ---------- */
   $("navLib").onclick = () => { path = []; showAll = false; show("libraryView"); loadLibrary(); };
   $("navAcc").onclick = () => { say($("profileMsg"), ""); show("accountView"); loadAccountLists(); loadSharedWith(); loadSharedToMe(); };
@@ -1880,6 +1965,7 @@
     setHello($("pName").value);
     $("navAdmin").hidden = !isAdmin;
     $("nav").hidden = false;
+    $("logoutBtn").hidden = false;
     refreshUnread();
     refreshAdminBadges();
     clearInterval(unreadT);
@@ -1895,7 +1981,8 @@
     else if (st.view === "messagesView") { show("messagesView"); loadInbox(); }
     else if (st.view === "notesView") { show("notesView"); loadMyNotes(); }
     else if (st.view === "threadView" && st.thread) await openThread(st.thread);
-    else show("libraryView");
+    else if (st.view === "libraryView") show("libraryView");
+    else { show("homeView"); loadHome(); }
     if (st.scroll) { const go = () => window.scrollTo(0, st.scroll); setTimeout(go, 150); setTimeout(go, 800); }
   }
 
@@ -1906,6 +1993,7 @@
     clearInterval(pollT);
     thread = null;
     $("nav").hidden = true;
+    $("logoutBtn").hidden = true;
     $("authForm").reset();
     setMode("login");
     $("secBadge").hidden = true;

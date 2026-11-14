@@ -89,6 +89,13 @@
   @media print { header, .back, .tools, .nform, .del, .fav, .noprint, .chips { display:none !important; } body { background:#fff; color:#000; } .card { border:0; } }
   mark { background:#f6e2a6; color:inherit; padding:0 2px; border-radius:3px; }
   body.dark mark { background:#6b5415; color:#fff; }
+  .emojis { display:flex; flex-wrap:wrap; gap:4px; margin:8px 0; }
+  .emojis button { border:1px solid var(--line); background:var(--card); border-radius:6px; font-size:1.3rem; padding:2px 6px; cursor:pointer; }
+  .rx { display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; }
+  .rx button { border:1px solid var(--line); background:var(--card); color:var(--text); border-radius:999px; padding:0 9px; cursor:pointer; font:inherit; }
+  .rx button[aria-pressed="true"] { border-color:var(--gold); }
+  .bub audio { width:100%; max-width:280px; margin-top:4px; }
+  .bub.me .btn { background:#fff; color:#14213d; }
   [hidden] { display:none !important; }
 </style>
 </head>
@@ -237,6 +244,14 @@
     <h2 id="threadTitle"></h2>
     <button class="small" id="blockBtn" type="button"></button>
     <div class="thread" id="thread"></div>
+    <div class="tools noprint">
+      <button class="small" id="emojiBtn" type="button">☺ אימוג׳י</button>
+      <button class="small" id="micBtn" type="button">🎤 הודעה קולית</button>
+      <button class="small" id="callBtn" type="button">📞 שיחה</button>
+    </div>
+    <div id="emojiPanel" class="emojis" hidden></div>
+    <p id="recStatus" class="meta" hidden></p>
+    <button class="small" id="recCancel" type="button" hidden>ביטול הקלטה</button>
     <form id="msgForm">
       <textarea id="msgBody" required maxlength="2000" aria-label="הודעה" placeholder="כתיבת הודעה"></textarea>
       <button class="primary" type="submit">שליחה</button>
@@ -345,7 +360,7 @@
   const VIEWS = ["authView","resetView","notesView","messagesView","threadView","libraryView","itemView","accountView","adminView","sharedView"];
   const KINDS = { article: "מאמר", audio: "שיעור שמע", video: "שיעור וידאו" };
   let me = null, isAdmin = false, filter = "all", mode = "login", favs = new Set();
-  let learned = new Set(), prevVisit = 0, thread = null, pollT = null, unreadT = null, iBlocked = false, recovering = false, flashMsg = "", allUsers = [], all = [], path = [], showAll = false, cal = "heb", cats = {}, rebbeName = {}, catList = [], rebbeList = [];
+  let lastSig = "", rec = null, recChunks = [], recTimer = null, recStart = 0, learned = new Set(), prevVisit = 0, thread = null, pollT = null, unreadT = null, iBlocked = false, recovering = false, flashMsg = "", allUsers = [], all = [], path = [], showAll = false, cal = "heb", cats = {}, rebbeName = {}, catList = [], rebbeList = [];
 
   function h(tag, cls, text) {
     const e = document.createElement(tag);
@@ -370,7 +385,7 @@
   function show(v) {
     VIEWS.forEach((x) => { $(x).hidden = x !== v; });
     if (v !== "authView" && v !== "resetView") saveState({ view: v, scroll: 0 });
-    if (v !== "threadView") { clearInterval(pollT); thread = null; }
+    if (v !== "threadView") { clearInterval(pollT); thread = null; cancelRec(); }
     const hl = v === "itemView" ? "libraryView" : v === "sharedView" ? "accountView" : v === "threadView" ? "messagesView" : v;
     document.querySelectorAll("nav button[data-view]").forEach((b) =>
       b.setAttribute("aria-current", String(b.dataset.view === hl)));
@@ -1526,7 +1541,7 @@
       const b = h("button", "item"), t = h("h3", null, nm[c.id] || "משתמש");
       b.type = "button";
       if (c.unread) t.append(h("span", "badge", String(c.unread)));
-      b.append(t, h("div", "meta", c.last.body.slice(0, 80)), h("div", "meta", dual(c.last.created_at)));
+      b.append(t, h("div", "meta", (c.last.body || "🎤 הודעה קולית").slice(0, 80)), h("div", "meta", dual(c.last.created_at)));
       b.onclick = () => openThread({ id: c.id, full_name: nm[c.id] });
       box.append(b);
     });
@@ -1549,19 +1564,67 @@
     $("blockBtn").textContent = iBlocked ? "ביטול חסימה" : "חסימת המשתמש";
   }
 
+  const QUICK = ["👍", "❤️", "😊", "😂", "😮", "🙏", "👏"];
+  const EMOJIS = "😀 😁 😂 🙂 😊 😍 🥰 😘 😎 🤔 😅 😇 🤗 🙈 😢 😭 😮 😴 🙏 👍 👏 🙌 🤝 💪 ❤️ 💙 ✨ 🌟 ⭐ 🕯️ 📖 🕎 ✡️ 🍷 🍞 🎉 🌹 ☀️ 🌙".split(" ");
+
+  async function react(mid, emoji, mine) {
+    if (mine && mine.emoji === emoji) await db.from("message_reactions").delete().eq("message_id", mid).eq("user_id", me.id);
+    else await db.from("message_reactions").upsert({ message_id: mid, user_id: me.id, emoji }, { onConflict: "message_id,user_id" });
+    renderThread(false);
+  }
+
   async function renderThread(scrollDown) {
     if (!thread) return;
     const box = $("thread"), pid = thread.id;
-    const { data, error } = await db.from("messages").select("id,sender_id,body,created_at")
+    const { data, error } = await db.from("messages").select("id,sender_id,body,audio_path,created_at")
       .or("and(sender_id.eq." + me.id + ",recipient_id.eq." + pid + "),and(sender_id.eq." + pid + ",recipient_id.eq." + me.id + ")")
       .order("created_at", { ascending: true }).limit(200);
     if (error) { say($("msgStatus"), "לא הצלחנו לטעון הודעות: " + error.message, "error"); return; }
     if (!thread || thread.id !== pid) return;
+    let rx = [];
+    if (data.length) {
+      const r = await db.from("message_reactions").select("message_id,user_id,emoji").in("message_id", data.map((m) => m.id));
+      rx = r.data || [];
+    }
+    db.from("messages").update({ read_at: new Date().toISOString() }).eq("recipient_id", me.id).eq("sender_id", pid).is("read_at", null).then(() => refreshUnread());
+    const sig = data.map((m) => m.id).join() + "|" + rx.map((r) => r.message_id + r.user_id + r.emoji).join();
+    if (sig === lastSig && !scrollDown) return;
+    lastSig = sig;
     box.replaceChildren();
     if (!data.length) box.append(h("p", "muted", "אין עדיין הודעות בשיחה הזו."));
     data.forEach((m) => {
       const mine = m.sender_id === me.id, b = h("div", "bub" + (mine ? " me" : ""));
-      b.append(h("div", null, m.body), h("div", "meta", dual(m.created_at)));
+      const link = (m.body || "").match(/https:\/\/meet\.jit\.si\/[A-Za-z0-9_-]+/);
+      if (link) {
+        const a = h("a", "btn", "הצטרפות לשיחה");
+        a.href = link[0]; a.target = "_blank"; a.rel = "noopener";
+        b.append(h("div", null, "📞 הזמנה לשיחה"), a);
+      } else if (m.body) b.append(h("div", null, m.body));
+      if (m.audio_path) {
+        const au = document.createElement("audio");
+        au.controls = true; au.preload = "none";
+        b.append(au);
+        db.storage.from("voice").createSignedUrl(m.audio_path, 3600).then(({ data: d }) => { if (d) au.src = d.signedUrl; });
+      }
+      b.append(h("div", "meta", dual(m.created_at)));
+      const my = rx.find((r) => r.message_id === m.id && r.user_id === me.id), counts = new Map();
+      rx.filter((r) => r.message_id === m.id).forEach((r) => counts.set(r.emoji, (counts.get(r.emoji) || 0) + 1));
+      const bar = h("div", "rx"), pal = h("div", "emojis");
+      pal.hidden = true;
+      counts.forEach((n, e) => {
+        const bt = h("button", null, e + " " + n);
+        bt.type = "button";
+        bt.setAttribute("aria-pressed", String(!!my && my.emoji === e));
+        bt.onclick = () => react(m.id, e, my);
+        bar.append(bt);
+      });
+      const add = h("button", null, "☺");
+      add.type = "button";
+      add.setAttribute("aria-label", "תגובה באימוג׳י");
+      add.onclick = () => { pal.hidden = !pal.hidden; };
+      bar.append(add);
+      QUICK.forEach((e) => { const pb = h("button", null, e); pb.type = "button"; pb.onclick = () => react(m.id, e, my); pal.append(pb); });
+      b.append(bar, pal);
       if (!mine) {
         const r = h("button", "small", "דיווח");
         r.type = "button";
@@ -1571,11 +1634,88 @@
       box.append(b);
     });
     if (scrollDown) box.scrollTop = box.scrollHeight;
-    db.from("messages").update({ read_at: new Date().toISOString() }).eq("recipient_id", me.id).eq("sender_id", pid).is("read_at", null).then(() => refreshUnread());
   }
+
+  /* emoji picker for composing */
+  EMOJIS.forEach((e) => {
+    const b = h("button", null, e);
+    b.type = "button";
+    b.onclick = () => {
+      const t = $("msgBody"), a = t.selectionStart == null ? t.value.length : t.selectionStart, z = t.selectionEnd == null ? a : t.selectionEnd;
+      t.value = t.value.slice(0, a) + e + t.value.slice(z);
+      t.focus();
+      t.selectionStart = t.selectionEnd = a + e.length;
+    };
+    $("emojiPanel").append(b);
+  });
+  $("emojiBtn").onclick = () => { $("emojiPanel").hidden = !$("emojiPanel").hidden; };
+
+  /* voice messages */
+  async function sendVoice(blob) {
+    if (!thread || blob.size < 1000) return;
+    const type = (blob.type || "audio/webm").split(";")[0];
+    const path = me.id + "/" + crypto.randomUUID() + "." + (type.includes("mp4") ? "m4a" : "webm");
+    const up = await db.storage.from("voice").upload(path, blob, { contentType: type });
+    if (up.error) { say($("msgStatus"), "העלאת ההקלטה נכשלה: " + up.error.message, "error"); return; }
+    const { error } = await db.from("messages").insert({ sender_id: me.id, recipient_id: thread.id, audio_path: path });
+    if (error) { await db.storage.from("voice").remove([path]); say($("msgStatus"), "אי אפשר לשלוח הודעה למשתמש הזה. ייתכן שהוא חסם אותך, או שהחשבון נחסם.", "error"); return; }
+    renderThread(true);
+  }
+
+  async function startRec() {
+    if (!navigator.mediaDevices || !window.MediaRecorder) { say($("msgStatus"), "הדפדפן הזה לא תומך בהקלטה.", "error"); return; }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const type = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"].find((t) => MediaRecorder.isTypeSupported(t));
+      rec = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
+      recChunks = [];
+      rec.ondataavailable = (e) => { if (e.data.size) recChunks.push(e.data); };
+      rec.start();
+      recStart = Date.now();
+      $("recStatus").hidden = false;
+      $("recCancel").hidden = false;
+      $("micBtn").textContent = "⏹ עצירה ושליחה";
+      recTimer = setInterval(() => {
+        const sec = Math.floor((Date.now() - recStart) / 1000);
+        $("recStatus").textContent = "מקליטים… " + sec + " שניות. לחצו שוב על הכפתור כדי לשלוח.";
+        if (sec >= 180) stopRec(true);
+      }, 500);
+    } catch (e) { say($("msgStatus"), "אין גישה למיקרופון. יש לאשר את ההרשאה בדפדפן.", "error"); }
+  }
+
+  function stopRec(send) {
+    clearInterval(recTimer);
+    $("recStatus").hidden = true;
+    $("recCancel").hidden = true;
+    $("micBtn").textContent = "🎤 הודעה קולית";
+    const r = rec;
+    rec = null;
+    if (!r) return;
+    r.onstop = () => {
+      r.stream.getTracks().forEach((t) => t.stop());
+      if (send) sendVoice(new Blob(recChunks, { type: r.mimeType || "audio/webm" }));
+    };
+    if (r.state !== "inactive") r.stop(); else r.onstop();
+  }
+  function cancelRec() { if (rec) stopRec(false); }
+  $("micBtn").onclick = () => (rec ? stopRec(true) : startRec());
+  $("recCancel").onclick = () => stopRec(false);
+
+  /* call: a private video/voice room link sent as a message */
+  $("callBtn").onclick = async () => {
+    if (!thread) return;
+    if (!confirm("להתחיל שיחה עם " + nameOf(thread) + "? תישלח הודעה עם קישור, והשיחה תיפתח בחלון חדש. אפשר לבחור שם אם להפעיל מצלמה.")) return;
+    const w = window.open("about:blank", "_blank");
+    const url = "https://meet.jit.si/shabtai-" + crypto.randomUUID().replace(/-/g, "");
+    const { error } = await db.from("messages").insert({ sender_id: me.id, recipient_id: thread.id, body: "הצטרפו לשיחה: " + url });
+    if (error) { if (w) w.close(); say($("msgStatus"), "אי אפשר להתחיל שיחה עם המשתמש הזה. ייתכן שהוא חסם אותך, או שהחשבון נחסם.", "error"); return; }
+    if (w) w.location = url;
+    renderThread(true);
+  };
 
   async function openThread(p) {
     thread = p;
+    lastSig = "";
     show("threadView");
     saveState({ thread: { id: p.id, full_name: p.full_name } });
     $("threadTitle").textContent = nameOf(p);

@@ -899,7 +899,31 @@
       c.onclick = () => showTab(tab);
       grid.append(c);
     });
-    box.replaceChildren(h("h2", null, "סקירה"), grid);
+    const sw = h("div", "tools");
+    ["men", "women"].forEach((k) => {
+      const b = h("button", "fav", SECNAME[k]);
+      b.type = "button";
+      b.setAttribute("aria-pressed", String(mySection === k));
+      b.onclick = async () => {
+        if (mySection === k) return;
+        const { error } = await db.rpc("admin_switch_section", { s: k });
+        if (error) { say($("itemMsg"), "המעבר נכשל: " + error.message, "error"); return; }
+        mySection = k;
+        $("secBadge").textContent = SECNAME[k];
+        refreshUnread();
+        say($("itemMsg"), "עברת ל" + SECNAME[k] + ". עכשיו את רואה את האתר כמשתמשת במדור הזה.", "ok");
+        loadOverview();
+      };
+      sw.append(b);
+    });
+    box.replaceChildren(
+      h("h2", null, "סקירה"),
+      h("h3", "sub", "המדור שבו את נמצאת"),
+      h("p", "meta", "המעבר מעביר את החשבון שלך למדור שבחרת: את רואה ומתכתבת עם משתמשים של המדור הזה, והם רואים אותך. בזמן שאת במדור אחד, משתמשים במדור השני לא רואים אותך ולא את ההודעות איתך, עד שתחזרי."),
+      sw,
+      h("h3", "sub", "נתונים"),
+      grid
+    );
   }
 
   function showTab(t) {

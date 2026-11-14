@@ -319,6 +319,12 @@
       <input id="iMedia" dir="ltr">
       <label for="iBody">טקסט (פסקאות מופרדות בשורה ריקה)</label>
       <textarea id="iBody"></textarea>
+      <label for="iAud">קהל</label>
+      <select id="iAud">
+        <option value="both">שני המדורים</option>
+        <option value="men">מדור הגברים בלבד</option>
+        <option value="women">מדור הנשים בלבד</option>
+      </select>
       <label for="iStatus">מצב פרסום</label>
       <select id="iStatus">
         <option value="now">פרסום עכשיו</option>
@@ -497,6 +503,7 @@
     if (isNew(it)) t.append(h("span", "badge", "חדש"));
     if (it.status === "draft") t.append(h("span", "badge", "טיוטה"));
     else if (it.publish_at && new Date(it.publish_at) > new Date()) t.append(h("span", "badge", "מתוזמן"));
+    if (isAdmin && it.audience && it.audience !== "both") t.append(h("span", "badge", SECNAME[it.audience] + " בלבד"));
     b.append(h("div", "kind", cats[it.category_id] || KINDS[it.kind] || ""), t);
     b.append(h("div", "meta", (it.author ? "מאת " + it.author + ", " : "") + "נוסף " + dual(it.created_at)));
     if (it.summary) b.append(h("p", null, it.summary));
@@ -573,7 +580,7 @@
   async function loadLibrary() {
     $("itemsList").replaceChildren(h("p", "muted", "טוענים…"));
     await loadMeta();
-    const { data, error } = await db.from("items").select("id,kind,title,author,summary,created_at,category_id,rebbe_id,content_date,status,publish_at").order("created_at", { ascending: false });
+    const { data, error } = await db.from("items").select("id,kind,title,author,summary,created_at,category_id,rebbe_id,content_date,status,publish_at,audience").order("created_at", { ascending: false });
     if (error) { $("itemsList").replaceChildren(h("p", "msg error", "לא הצלחנו לטעון את התכנים.")); return; }
     all = data;
     const nn = all.filter(isNew).length;
@@ -1005,7 +1012,7 @@
 
   let editId = null, editFiles = [], removedFiles = [];
   const toLocal = (v) => { const d = new Date(v); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
-  const stTxt = (it) => it.status === "draft" ? " [טיוטה]" : (it.publish_at && new Date(it.publish_at) > new Date() ? " [מתוזמן ל־" + dual(it.publish_at) + "]" : "");
+  const stTxt = (it) => (it.audience && it.audience !== "both" ? " [" + SECNAME[it.audience] + " בלבד]" : "") + (it.status === "draft" ? " [טיוטה]" : (it.publish_at && new Date(it.publish_at) > new Date() ? " [מתוזמן ל־" + dual(it.publish_at) + "]" : ""));
   function renderAttach() {
     const box = $("attachList");
     box.replaceChildren();
@@ -1036,6 +1043,7 @@
     $("iDate").value = data.content_date || "";
     if (data.content_date) $("iDate").onchange();
     $("iTitle").value = data.title;
+    $("iAud").value = data.audience || "both";
     $("iAuthor").value = data.author || "";
     $("iSummary").value = data.summary || "";
     $("iMedia").value = data.media_url || "";
@@ -1062,7 +1070,7 @@
 
   async function loadAdminList() {
     const box = $("adminList");
-    const { data, error } = await db.from("items").select("id,title,file_path,files,status,publish_at,category_id,created_at").order("created_at", { ascending: false });
+    const { data, error } = await db.from("items").select("id,title,file_path,files,status,publish_at,audience,category_id,created_at").order("created_at", { ascending: false });
     box.replaceChildren();
     if (error) { box.append(h("p", "msg error", "לא הצלחנו לטעון את הרשימה.")); return; }
     if (!data.length) { box.append(h("p", "muted", "עדיין לא נוספו תכנים.")); return; }
@@ -1108,6 +1116,7 @@
     const kind = /youtu|\.(mp4|webm)(\?|$)/i.test(media) ? "video" : /\.(mp3|m4a|wav|ogg)(\?|$)/i.test(media) ? "audio" : "article";
     const row = {
       kind, file_path: null, files: [...editFiles, ...added],
+      audience: $("iAud").value,
       status: mode === "draft" ? "draft" : "published",
       publish_at: mode === "sched" ? new Date($("iWhen").value).toISOString() : null,
       title: $("iTitle").value.trim(),

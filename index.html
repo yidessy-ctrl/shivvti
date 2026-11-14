@@ -102,7 +102,7 @@
 <body>
 
 <header>
-  <h1>שבתי</h1>
+  <h1>שבתי<span class="badge" id="secBadge" hidden></span></h1>
   <nav id="nav" hidden>
     <button data-view="libraryView" id="navLib">ספרייה</button>
     <button data-view="accountView" id="navAcc">האיזור שלי</button>
@@ -115,8 +115,25 @@
 </header>
 
 <main>
+  <section id="pickView" class="card narrow" hidden>
+    <img class="hero" src="rebbe.jpg" alt="" onerror="this.remove()">
+    <h2>ברוכים הבאים</h2>
+    <p class="muted">לאיזה מדור תרצו להיכנס?</p>
+    <button class="primary" type="button" data-sec="men">מדור הגברים</button>
+    <button class="primary" type="button" data-sec="women">מדור הנשים</button>
+  </section>
+
+  <section id="setSectionView" class="card narrow" hidden>
+    <h2>בחירת מדור</h2>
+    <p class="muted">כדי להמשיך, יש לבחור את המדור שלך. הבחירה נקבעת פעם אחת, ושינוי שלה אפשרי רק דרך מנהלת האתר.</p>
+    <button class="primary" type="button" data-set="men">מדור הגברים</button>
+    <button class="primary" type="button" data-set="women">מדור הנשים</button>
+    <p id="secMsg" class="msg" role="status"></p>
+  </section>
+
   <section id="authView" class="card narrow" hidden>
     <img class="hero" src="rebbe.jpg" alt="" onerror="this.remove()">
+    <p class="meta"><span id="secLine"></span> <button type="button" id="changeSec" class="back" style="margin:0">החלפת מדור</button></p>
     <div class="tabs" role="tablist">
       <button id="tabLogin" role="tab" aria-selected="true">התחברות</button>
       <button id="tabSignup" role="tab" aria-selected="false">הרשמה</button>
@@ -188,7 +205,7 @@
     <h2 class="sec">שיתוף עם אחרים</h2>
     <div class="card">
       <p class="muted">רק מה שסימנת לשיתוף (תכנים במועדפים והערות) יהיה גלוי לאחרים.</p>
-      <label class="check"><input type="checkbox" id="pubToggle"> שיתוף עם כל המשתמשים באתר</label>
+      <label class="check"><input type="checkbox" id="pubToggle"> שיתוף עם כל המשתמשים במדור שלי</label>
       <h3 class="sub">שיתוף עם משתמשים מסוימים</h3>
       <form id="userSearchForm" class="inline">
         <input id="userQ" placeholder="חיפוש לפי שם" aria-label="חיפוש משתמש לפי שם">
@@ -357,10 +374,10 @@
 <script>
   const db = supabase.createClient("https://goxuttqosikycbskqhra.supabase.co", "sb_publishable__yAh-tm8u3VWggJGKRR-6Q_hvquy945");
   const $ = (id) => document.getElementById(id);
-  const VIEWS = ["authView","resetView","notesView","messagesView","threadView","libraryView","itemView","accountView","adminView","sharedView"];
+  const VIEWS = ["pickView","setSectionView","authView","resetView","notesView","messagesView","threadView","libraryView","itemView","accountView","adminView","sharedView"];
   const KINDS = { article: "מאמר", audio: "שיעור שמע", video: "שיעור וידאו" };
   let me = null, isAdmin = false, filter = "all", mode = "login", favs = new Set();
-  let lastSig = "", rec = null, recChunks = [], recTimer = null, recStart = 0, learned = new Set(), prevVisit = 0, thread = null, pollT = null, unreadT = null, iBlocked = false, recovering = false, flashMsg = "", allUsers = [], all = [], path = [], showAll = false, cal = "heb", cats = {}, rebbeName = {}, catList = [], rebbeList = [];
+  let pendingUser = null, mySection = null, lastSig = "", rec = null, recChunks = [], recTimer = null, recStart = 0, learned = new Set(), prevVisit = 0, thread = null, pollT = null, unreadT = null, iBlocked = false, recovering = false, flashMsg = "", allUsers = [], all = [], path = [], showAll = false, cal = "heb", cats = {}, rebbeName = {}, catList = [], rebbeList = [];
 
   function h(tag, cls, text) {
     const e = document.createElement(tag);
@@ -369,6 +386,23 @@
     return e;
   }
   function say(el, text, kind) { el.textContent = text; el.className = "msg " + (kind || ""); }
+  const SECNAME = { men: "מדור הגברים", women: "מדור הנשים" };
+  const getChoice = () => { const c = localStorage.getItem("section_choice"); return SECNAME[c] ? c : null; };
+  function showEntry() {
+    if (getChoice()) { $("secLine").textContent = SECNAME[getChoice()]; show("authView"); } else show("pickView");
+  }
+  document.querySelectorAll("#pickView [data-sec]").forEach((b) => {
+    b.onclick = () => { localStorage.setItem("section_choice", b.dataset.sec); showEntry(); };
+  });
+  $("changeSec").onclick = () => { localStorage.removeItem("section_choice"); show("pickView"); };
+  document.querySelectorAll("#setSectionView [data-set]").forEach((b) => {
+    b.onclick = async () => {
+      const { error } = await db.rpc("set_my_section", { s: b.dataset.set });
+      if (error) { say($("secMsg"), "השמירה נכשלה: " + error.message, "error"); return; }
+      me = null;
+      enterApp(pendingUser);
+    };
+  });
   const SS = "shabtai_state";
   function loadState() { try { return JSON.parse(sessionStorage.getItem(SS) || "{}"); } catch (e) { return {}; } }
   function saveState(extra) { try { sessionStorage.setItem(SS, JSON.stringify({ ...loadState(), ...extra })); } catch (e) {} }
@@ -384,7 +418,7 @@
   }
   function show(v) {
     VIEWS.forEach((x) => { $(x).hidden = x !== v; });
-    if (v !== "authView" && v !== "resetView") saveState({ view: v, scroll: 0 });
+    if (!["authView", "resetView", "pickView", "setSectionView"].includes(v)) saveState({ view: v, scroll: 0 });
     if (v !== "threadView") { clearInterval(pollT); thread = null; cancelRec(); }
     const hl = v === "itemView" ? "libraryView" : v === "sharedView" ? "accountView" : v === "threadView" ? "messagesView" : v;
     document.querySelectorAll("nav button[data-view]").forEach((b) =>
@@ -443,7 +477,7 @@
     const email = $("email").value.trim(), password = $("password").value;
     try {
       if (mode === "signup") {
-        const { data, error } = await db.auth.signUp({ email, password, options: { data: { full_name: $("fullName").value.trim() } } });
+        const { data, error } = await db.auth.signUp({ email, password, options: { data: { full_name: $("fullName").value.trim(), section: getChoice() } } });
         if (error) throw error;
         if (!data.session) say($("authMsg"), "החשבון נוצר. שלחנו אליך מייל לאישור, ואחרי האישור אפשר להתחבר.", "ok");
       } else {
@@ -731,7 +765,7 @@
       const em = h("div", "meta", u.email);
       em.dir = "ltr";
       em.style.textAlign = "right";
-      info.append(em, h("div", "meta", "הצטרף " + dual(u.created_at) + (u.last_sign_in_at ? ", כניסה אחרונה " + dual(u.last_sign_in_at) : "")));
+      info.append(em, h("div", "meta", (SECNAME[u.section] || "ללא מדור") + ", הצטרף " + dual(u.created_at) + (u.last_sign_in_at ? ", כניסה אחרונה " + dual(u.last_sign_in_at) : "")));
       row.append(info);
       if (!u.is_admin && u.id !== me.id) {
         const b = h("button", u.blocked ? "small" : "del", u.blocked ? "ביטול חסימה" : "חסימה");
@@ -741,7 +775,15 @@
           const { error } = await db.rpc("admin_set_blocked", { uid: u.id, b: !u.blocked });
           if (error) say($("itemMsg"), "הפעולה נכשלה: " + error.message, "error"); else loadUsers();
         };
-        row.append(b);
+        const mv = h("button", "small", u.section === "women" ? "העברה למדור הגברים" : "העברה למדור הנשים");
+        mv.type = "button";
+        mv.style.marginInlineStart = "8px";
+        mv.onclick = async () => {
+          if (!confirm("להעביר את " + (u.full_name || u.email) + " ל" + (u.section === "women" ? SECNAME.men : SECNAME.women) + "?")) return;
+          const { error } = await db.rpc("admin_set_section", { uid: u.id, s: u.section === "women" ? "men" : "women" });
+          if (error) say($("itemMsg"), "הפעולה נכשלה: " + error.message, "error"); else loadUsers();
+        };
+        row.append(b, mv);
       }
       box.append(row);
     });
@@ -1442,7 +1484,7 @@
     const on = e.target.checked;
     const { error } = await db.from("profiles").update({ favs_public: on }).eq("id", me.id);
     if (error) { e.target.checked = !on; say($("shareMsg"), "העדכון נכשל. נסו שוב.", "error"); return; }
-    say($("shareMsg"), on ? "התכנים שסימנת לשיתוף גלויים עכשיו לכל המשתמשים באתר." : "התכנים שלך כבר לא גלויים לכולם.", "ok");
+    say($("shareMsg"), on ? "התכנים שסימנת לשיתוף גלויים עכשיו לכל המשתמשים במדור שלך." : "התכנים שלך כבר לא גלויים לכולם.", "ok");
   };
 
   $("userSearchForm").addEventListener("submit", async (e) => {
@@ -1765,8 +1807,12 @@
   async function enterApp(user) {
     if (me && me.id === user.id) return;
     me = user;
-    const { data } = await db.from("profiles").select("full_name,bio,is_admin,favs_public,blocked").eq("id", user.id).maybeSingle();
+    const { data } = await db.from("profiles").select("full_name,bio,is_admin,favs_public,blocked,section").eq("id", user.id).maybeSingle();
     if (data && data.blocked) { me = null; flashMsg = "החשבון הזה נחסם. לפרטים אפשר לפנות למנהלת האתר."; await db.auth.signOut(); return; }
+    if (data && !data.section) { pendingUser = user; show("setSectionView"); return; }
+    mySection = data && data.section;
+    $("secBadge").textContent = SECNAME[mySection] || "";
+    $("secBadge").hidden = !mySection;
     isAdmin = !!(data && data.is_admin);
     const { data: fv } = await db.from("favorites").select("item_id").eq("user_id", user.id);
     favs = new Set((fv || []).map((r) => r.item_id));
@@ -1814,7 +1860,8 @@
     $("nav").hidden = true;
     $("authForm").reset();
     setMode("login");
-    show("authView");
+    $("secBadge").hidden = true;
+    showEntry();
     if (flashMsg) { say($("authMsg"), flashMsg, "error"); flashMsg = ""; }
   }
 

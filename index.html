@@ -86,7 +86,9 @@
   .tools { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0; }
   .tools .fav { margin:0; }
   .badge.ok { background:var(--ok); }
-  @media print { header, .back, .tools, .nform, .del, .fav { display:none !important; } body { background:#fff; color:#000; } .card { border:0; } }
+  @media print { header, .back, .tools, .nform, .del, .fav, .noprint, .chips { display:none !important; } body { background:#fff; color:#000; } .card { border:0; } }
+  mark { background:#f6e2a6; color:inherit; padding:0 2px; border-radius:3px; }
+  body.dark mark { background:#6b5415; color:#fff; }
   [hidden] { display:none !important; }
 </style>
 </head>
@@ -97,6 +99,7 @@
   <nav id="nav" hidden>
     <button data-view="libraryView" id="navLib">ספרייה</button>
     <button data-view="accountView" id="navAcc">האיזור שלי</button>
+    <button data-view="notesView" id="navNotes">ההערות שלי</button>
     <button data-view="messagesView" id="navMsg">הודעות</button>
     <button data-view="adminView" id="navAdmin" hidden>ניהול</button>
     <button id="logoutBtn" class="out">התנתקות</button>
@@ -198,6 +201,24 @@
     <button class="back" id="backAcc">חזרה לאיזור האישי</button>
     <h2 id="sharedTitle"></h2>
     <div id="sharedItems"></div>
+  </section>
+
+  <section id="notesView" hidden>
+    <h2>ההערות שלי</h2>
+    <div class="inline noprint">
+      <input id="nQ" placeholder="חיפוש בהערות, בציטוטים ובכותרות" aria-label="חיפוש בהערות">
+    </div>
+    <div class="chips noprint" id="nChips">
+      <button data-f="all" aria-pressed="true">הכול</button>
+      <button data-f="shared" aria-pressed="false">משותפות</button>
+      <button data-f="private" aria-pressed="false">פרטיות</button>
+    </div>
+    <p class="noprint">
+      <button class="small" id="nExport" type="button">הורדה כקובץ טקסט</button>
+      <button class="small" id="nPrint" type="button">הדפסה</button>
+    </p>
+    <p class="meta" id="nCount"></p>
+    <div id="nList"></div>
   </section>
 
   <section id="messagesView" hidden>
@@ -321,7 +342,7 @@
 <script>
   const db = supabase.createClient("https://goxuttqosikycbskqhra.supabase.co", "sb_publishable__yAh-tm8u3VWggJGKRR-6Q_hvquy945");
   const $ = (id) => document.getElementById(id);
-  const VIEWS = ["authView","resetView","messagesView","threadView","libraryView","itemView","accountView","adminView","sharedView"];
+  const VIEWS = ["authView","resetView","notesView","messagesView","threadView","libraryView","itemView","accountView","adminView","sharedView"];
   const KINDS = { article: "מאמר", audio: "שיעור שמע", video: "שיעור וידאו" };
   let me = null, isAdmin = false, filter = "all", mode = "login", favs = new Set();
   let learned = new Set(), prevVisit = 0, thread = null, pollT = null, unreadT = null, iBlocked = false, recovering = false, flashMsg = "", allUsers = [], all = [], path = [], showAll = false, cal = "heb", cats = {}, rebbeName = {}, catList = [], rebbeList = [];
@@ -1073,6 +1094,29 @@
         if (error) cb.checked = !cb.checked;
       };
       lab.append(cb, document.createTextNode(" משותפת"));
+      const ed = h("button", "small", "עריכה");
+      ed.type = "button";
+      ed.onclick = () => {
+        const q = document.createElement("textarea");
+        q.rows = 2; q.style.minHeight = "56px"; q.value = n.quote || "";
+        q.placeholder = "הטקסט המסומן או מיקום"; q.setAttribute("aria-label", "הטקסט המסומן או מיקום");
+        const b = document.createElement("textarea");
+        b.value = n.body; b.setAttribute("aria-label", "ההערה");
+        const save = h("button", "small", "שמירה");
+        save.type = "button";
+        save.onclick = async () => {
+          const body = b.value.trim();
+          if (!body) return;
+          const { error } = await db.from("notes").update({ body, quote: q.value.trim() || null }).eq("id", n.id);
+          if (error) { alert("השמירה נכשלה: " + error.message); return; }
+          redraw();
+        };
+        const cancel = h("button", "small", "ביטול");
+        cancel.type = "button";
+        cancel.style.marginInlineStart = "8px";
+        cancel.onclick = redraw;
+        el.replaceChildren(q, b, save, cancel);
+      };
       const d = h("button", "del", "מחיקה");
       d.type = "button";
       d.onclick = async () => {
@@ -1082,7 +1126,7 @@
         if (n.image_path) await db.storage.from("note-images").remove([n.image_path]);
         redraw();
       };
-      el.append(lab, d);
+      el.append(lab, ed, d);
     }
     return el;
   }
@@ -1092,6 +1136,7 @@
     const { data, error } = await db.from("notes").select("id,user_id,quote,body,shared,created_at,image_path").eq("item_id", itemId).order("created_at");
     if (error) { box.append(h("p", "msg error", "לא הצלחנו לטעון את ההערות: " + error.message)); return; }
     const redraw = () => renderNotes(box, itemId, hasFile);
+    highlightQuotes(data.filter((n) => n.user_id === me.id).map((n) => n.quote).filter(Boolean));
     const form = h("form", "nform");
     const sel = h("button", "small", "הערה על הטקסט המסומן");
     sel.type = "button";
@@ -1222,6 +1267,82 @@
     localStorage.setItem("theme", d ? "dark" : "light");
     paintTheme();
   };
+
+  function highlightQuotes(quotes) {
+    document.querySelectorAll("#itemBox p.body").forEach((p) => {
+      const txt = p.dataset.orig || (p.dataset.orig = p.textContent);
+      const spans = [];
+      quotes.forEach((q) => { const i = txt.indexOf(q); if (i >= 0) spans.push([i, i + q.length]); });
+      spans.sort((a, b) => a[0] - b[0]);
+      let pos = 0;
+      const out = [];
+      spans.forEach(([a, b]) => {
+        if (a < pos) return;
+        out.push(document.createTextNode(txt.slice(pos, a)));
+        const m = document.createElement("mark");
+        m.textContent = txt.slice(a, b);
+        out.push(m);
+        pos = b;
+      });
+      out.push(document.createTextNode(txt.slice(pos)));
+      p.replaceChildren(...out);
+    });
+  }
+
+  let myNotes = [], nFilter = "all";
+  async function loadMyNotes() {
+    const box = $("nList");
+    box.replaceChildren(h("p", "muted", "טוענים…"));
+    const { data, error } = await db.from("notes").select("id,item_id,quote,body,shared,created_at,image_path,items(title)").eq("user_id", me.id).order("created_at", { ascending: false });
+    if (error) { box.replaceChildren(h("p", "msg error", "לא הצלחנו לטעון הערות: " + error.message)); return; }
+    myNotes = data;
+    renderMyNotes();
+  }
+
+  function renderMyNotes() {
+    const box = $("nList"), q = $("nQ").value.trim().toLowerCase();
+    const title = (n) => (n.items && n.items.title) || "תוכן שאינו זמין";
+    const list = myNotes.filter((n) => (nFilter === "all" || (nFilter === "shared") === n.shared) && (!q || (n.body + " " + (n.quote || "") + " " + title(n)).toLowerCase().includes(q)));
+    $("nCount").textContent = list.length + " הערות";
+    box.replaceChildren();
+    if (!list.length) { box.append(h("p", "muted", myNotes.length ? "לא נמצאו הערות מתאימות." : "עדיין אין הערות. אפשר לכתוב הערה בתחתית העמוד של כל תוכן.")); return; }
+    const groups = new Map();
+    list.forEach((n) => { const g = groups.get(n.item_id) || []; g.push(n); groups.set(n.item_id, g); });
+    groups.forEach((ns, itemId) => {
+      const hb = h("button", "item");
+      hb.type = "button";
+      hb.append(h("h3", null, title(ns[0])), h("div", "meta", ns.length + " הערות"));
+      if (ns[0].items) hb.onclick = () => openItem(itemId);
+      box.append(hb);
+      ns.forEach((n) => box.append(noteRow(n, null, true, loadMyNotes)));
+    });
+  }
+
+  document.querySelectorAll("#nChips button").forEach((b) => {
+    b.onclick = () => {
+      nFilter = b.dataset.f;
+      document.querySelectorAll("#nChips button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+      renderMyNotes();
+    };
+  });
+  $("nQ").oninput = renderMyNotes;
+  $("nPrint").onclick = () => window.print();
+  $("nExport").onclick = () => {
+    const lines = ["ההערות שלי באתר שבתי", ""];
+    myNotes.forEach((n) => {
+      lines.push(((n.items && n.items.title) || "תוכן שאינו זמין") + " (" + dual(n.created_at) + (n.shared ? ", משותפת" : "") + ")");
+      if (n.quote) lines.push("על הטקסט: “" + n.quote + "”");
+      lines.push(n.body);
+      if (n.image_path) lines.push("[מצורפת תמונה]");
+      lines.push("----------", "");
+    });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob(["\ufeff" + lines.join("\r\n")], { type: "text/plain;charset=utf-8" }));
+    a.download = "my-notes.txt";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+  $("navNotes").onclick = () => { show("notesView"); loadMyNotes(); };
 
   /* ---------- מועדפים והמשך מהמקום שעצרתי ---------- */
   function favButton(id) {
@@ -1538,6 +1659,7 @@
     else if (st.view === "adminView" && isAdmin) openAdmin();
     else if (st.view === "sharedView" && st.sharedUser) await openShared(st.sharedUser);
     else if (st.view === "messagesView") { show("messagesView"); loadInbox(); }
+    else if (st.view === "notesView") { show("notesView"); loadMyNotes(); }
     else if (st.view === "threadView" && st.thread) await openThread(st.thread);
     else show("libraryView");
     if (st.scroll) { const go = () => window.scrollTo(0, st.scroll); setTimeout(go, 150); setTimeout(go, 800); }

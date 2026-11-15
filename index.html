@@ -136,17 +136,17 @@
   @media print { nav { display:none !important; } }
   @media (prefers-reduced-motion:reduce) { * { transition:none !important; } }
   /* ===== deep green theme v3: layered tones and depth ===== */
-  :root { --text:#23352f; --head:#17503f; --ink:#1f6f5b; --paper:#f2f5ee; --paper2:#e6eee3; --card:#ffffff; --line:#d9e3d6; --gold:#d4b86a; --accent:#8a6b22; --muted:#5f736a; --error:#b04040; --ok:#2f7a54; --tint:#e4efe7; --sec:#2b6f8a; --shadow:rgba(20,70,55,.12); }
-  body.dark { --text:#e6efe9; --head:#8fd0b9; --ink:#27806a; --paper:#0f1a17; --paper2:#0a1210; --card:#16241f; --line:#264038; --gold:#c9ad6e; --accent:#d9bc6d; --muted:#9db3aa; --error:#ff9b9b; --ok:#7fd8a6; --tint:#1c302a; --sec:#5aa9c4; --shadow:rgba(0,0,0,.45); }
+  :root { --text:#23352f; --head:#17503f; --ink:#1f6f5b; --paper:#f2f5ee; --paper2:#e6eee3; --card:#ffffff; --line:#d9e3d6; --gold:#d4b86a; --accent:#8a6b22; --muted:#5f736a; --error:#b04040; --ok:#2f7a54; --tint:#e4efe7; --sec:#2b6f8a; --shadow:rgba(20,70,55,.12); --g1:#16503f; --g2:#1f6f5b; --g3:#2a806a; --b1:#24806a; --b2:#1b6552; }
+  body.dark { --text:#e6efe9; --head:#8fd0b9; --ink:#27806a; --paper:#0f1a17; --paper2:#0a1210; --card:#16241f; --line:#264038; --gold:#c9ad6e; --accent:#d9bc6d; --muted:#9db3aa; --error:#ff9b9b; --ok:#7fd8a6; --tint:#1c302a; --sec:#5aa9c4; --shadow:rgba(0,0,0,.45); --g1:#0f3a30; --g2:#17503f; --g3:#1f6a57; --b1:#24806a; --b2:#1b6552; }
   body { background:var(--paper) linear-gradient(180deg,var(--paper) 0,var(--paper2) 100%) fixed; }
-  header { background:radial-gradient(circle at 12% -20%,rgba(255,255,255,.16),transparent 50%),linear-gradient(135deg,#16503f 0%,#1f6f5b 55%,#2a806a 100%); border-bottom:3px solid var(--gold); box-shadow:0 4px 18px var(--shadow), inset 0 -1px 0 rgba(255,255,255,.12); }
+  header { background:radial-gradient(circle at 12% -20%,rgba(255,255,255,.16),transparent 50%),linear-gradient(135deg,var(--g1) 0%,var(--g2) 55%,var(--g3) 100%); border-bottom:3px solid var(--gold); box-shadow:0 4px 18px var(--shadow), inset 0 -1px 0 rgba(255,255,255,.12); }
   body.dark header { background:radial-gradient(circle at 12% -20%,rgba(255,255,255,.1),transparent 50%),linear-gradient(135deg,#0f3a30 0%,#17503f 55%,#1f6a57 100%); }
   header h1 { color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.25); }
   h2, h3 { color:var(--head); }
   .card { border-color:var(--line); box-shadow:0 1px 2px var(--shadow), 0 10px 28px var(--shadow); }
   .item { border-color:var(--line); border-inline-start:4px solid var(--gold); box-shadow:0 1px 2px var(--shadow), 0 4px 12px var(--shadow); }
   .item:hover { box-shadow:0 2px 4px var(--shadow), 0 10px 26px var(--shadow); }
-  .primary, .btn, .atabs button[aria-selected="true"], .chips button[aria-pressed="true"] { background:linear-gradient(180deg,#24806a,#1b6552); box-shadow:inset 0 1px 0 rgba(255,255,255,.18), 0 2px 6px var(--shadow); }
+  .primary, .btn, .atabs button[aria-selected="true"], .chips button[aria-pressed="true"] { background:linear-gradient(180deg,var(--b1),var(--b2)); box-shadow:inset 0 1px 0 rgba(255,255,255,.18), 0 2px 6px var(--shadow); }
   .chips button[aria-pressed="true"], .atabs button[aria-selected="true"] { border-color:transparent; }
   input, textarea, select { border:1px solid var(--line); box-shadow:inset 0 1px 2px rgba(20,70,55,.08); }
   input:focus, textarea:focus, select:focus { border-color:var(--ink); }
@@ -175,6 +175,57 @@
   }
   [hidden] { display:none !important; }
 </style>
+<script>
+var DEFAULT_THEME = { ink: "#1f6f5b", accent: "#8a6b22", paper: "#f2f5ee", text: "#23352f" };
+var PRESETS = [
+  { name: "ירוק עמוק", colors: { ink: "#1f6f5b", accent: "#8a6b22", paper: "#f2f5ee", text: "#23352f" } },
+  { name: "כחול ספיר", colors: { ink: "#3d5a98", accent: "#8d6d24", paper: "#f6f4ef", text: "#2c3550" } },
+  { name: "בורדו", colors: { ink: "#8a2f48", accent: "#8a6b22", paper: "#f8f3f1", text: "#3a2328" } },
+  { name: "סגול מלכותי", colors: { ink: "#5b3f8f", accent: "#8a6b22", paper: "#f5f2f8", text: "#2d2640" } },
+  { name: "ים וחול", colors: { ink: "#1d6a7a", accent: "#9a6a2a", paper: "#f3f4ee", text: "#1f3338" } },
+  { name: "פחם וזהב", colors: { ink: "#3b4350", accent: "#8a6b22", paper: "#f5f4f1", text: "#262b33" } }
+];
+function hex2(h) { return [1, 3, 5].map(function (i) { return parseInt(h.slice(i, i + 2), 16); }); }
+function toHex(a) { return "#" + a.map(function (v) { return Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, "0"); }).join(""); }
+function mix(a, b, t) { var x = hex2(a), y = hex2(b); return toHex(x.map(function (v, i) { return v * (1 - t) + y[i] * t; })); }
+function lum(h) {
+  var c = hex2(h).map(function (v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+  return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+}
+function contrast(a, b) { var x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+function themeVars(t) {
+  var r = hex2(mix(t.ink, "#000000", 0.5));
+  return {
+    "--ink": t.ink, "--accent": t.accent, "--paper": t.paper, "--text": t.text,
+    "--paper2": mix(t.paper, t.ink, 0.1), "--line": mix(t.paper, t.ink, 0.14),
+    "--tint": mix("#ffffff", t.ink, 0.12), "--head": mix(t.ink, "#000000", 0.35),
+    "--muted": mix(t.text, "#ffffff", 0.25), "--gold": mix(t.accent, "#ffffff", 0.45),
+    "--g1": mix(t.ink, "#000000", 0.3), "--g2": t.ink, "--g3": mix(t.ink, "#ffffff", 0.12),
+    "--b1": mix(t.ink, "#ffffff", 0.08), "--b2": mix(t.ink, "#000000", 0.15),
+    "--shadow": "rgba(" + r.join(",") + ",.14)"
+  };
+}
+function applyTheme(t) {
+  var st = document.documentElement.style, base = themeVars(DEFAULT_THEME);
+  Object.keys(base).forEach(function (k) { st.removeProperty(k); });
+  var meta = document.querySelector('meta[name="theme-color"]');
+  if (!t || !t.ink) { if (meta) meta.setAttribute("content", DEFAULT_THEME.ink); return; }
+  var w = themeVars(Object.assign({}, DEFAULT_THEME, t));
+  Object.keys(w).forEach(function (k) { st.setProperty(k, w[k]); });
+  if (meta) meta.setAttribute("content", t.ink);
+}
+function themeIssues(t) {
+  var c = Object.assign({}, DEFAULT_THEME, t), out = [];
+  if (contrast("#ffffff", mix(c.ink, "#ffffff", 0.12)) < 4.5) out.push("הצבע הראשי בהיר מדי: הכיתוב הלבן בכותרת ובכפתורים לא יהיה קריא. כדאי לבחור גוון כהה יותר.");
+  if (contrast("#ffffff", c.accent) < 4.5) out.push("צבע ההדגשה בהיר מדי: הכיתוב הלבן בתגיות לא יהיה קריא. כדאי לבחור גוון כהה יותר.");
+  if (lum(c.paper) < 0.6) out.push("הרקע כהה מדי. האתר בנוי לרקע בהיר, ולמצב כהה יש פלטה משלו.");
+  if (contrast(c.text, c.paper) < 7 || contrast(c.text, "#ffffff") < 7) out.push("צבע הטקסט קרוב מדי לצבע הרקע, והקריאה תהיה קשה. כדאי לבחור גוון כהה יותר לטקסט.");
+  return out;
+}
+var savedTheme = {};
+try { savedTheme = JSON.parse(localStorage.getItem("theme_cache") || "{}") || {}; } catch (e) {}
+applyTheme(savedTheme);
+</script>
 </head>
 <body>
 
@@ -381,6 +432,7 @@
       <button data-tab="aNotes" aria-selected="false">הערות משותפות<span class="badge" id="bNotes" hidden></span></button>
       <button data-tab="aReports" aria-selected="false">דיווחים<span class="badge" id="bReports" hidden></span></button>
       <button data-tab="aStats" aria-selected="false">סטטיסטיקות</button>
+      <button data-tab="aTheme" aria-selected="false">עיצוב</button>
     </div>
     <p id="itemMsg" class="msg" role="status"></p>
 
@@ -464,6 +516,22 @@
       <div id="statList"></div>
     </div>
 
+    <div class="card apanel" id="aTheme" hidden>
+      <h2>עיצוב האתר</h2>
+      <p class="meta">בחרי פלטה מוכנה או התאימי צבעים בעצמך. השינוי מוצג מיד, ונשמר לכל המשתמשים רק אחרי לחיצה על שמירה. מצב כהה משתמש בפלטה משלו.</p>
+      <h3 class="sub">פלטות מוכנות</h3>
+      <div class="chips" id="presetList"></div>
+      <h3 class="sub">צבעים</h3>
+      <div id="colorFields"></div>
+      <div id="themeIssues"></div>
+      <div class="tools">
+        <button class="primary" style="width:auto;margin:0" id="themeSave" type="button">שמירה לכל האתר</button>
+        <button class="small" id="themeCancel" type="button">ביטול שינויים</button>
+        <button class="small" id="themeReset" type="button">חזרה לברירת מחדל</button>
+      </div>
+      <p id="themeMsg" class="msg" role="status"></p>
+    </div>
+
     <div class="card apanel" id="aReports" hidden>
       <h2>דיווחים על הודעות</h2>
       <div id="reportList"></div>
@@ -487,6 +555,11 @@
     return e;
   }
   function say(el, text, kind) { el.textContent = text; el.className = "msg " + (kind || ""); }
+  db.from("site_settings").select("theme").eq("id", 1).maybeSingle().then(({ data }) => {
+    savedTheme = (data && data.theme) || {};
+    localStorage.setItem("theme_cache", JSON.stringify(savedTheme));
+    applyTheme(savedTheme);
+  });
   const SECNAME = { men: "מדור הגברים", women: "מדור הנשים" };
   const getChoice = () => { const c = localStorage.getItem("section_choice"); return SECNAME[c] ? c : null; };
   function showEntry() {
@@ -536,6 +609,7 @@
     VIEWS.forEach((x) => { $(x).hidden = x !== v; });
     if (!["authView", "resetView", "pickView", "setSectionView"].includes(v)) saveState({ view: v, scroll: 0 });
     if (v !== "threadView") { clearInterval(pollT); thread = null; cancelRec(); }
+    if (v !== "adminView") applyTheme(savedTheme);
     const hl = v === "itemView" ? "libraryView" : v === "sharedView" ? "accountView" : v === "threadView" ? "messagesView" : v;
     document.querySelectorAll("nav button[data-view]").forEach((b) =>
       b.setAttribute("aria-current", String(b.dataset.view === hl)));
@@ -1049,12 +1123,14 @@
     document.querySelectorAll("#atabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === t)));
     document.querySelectorAll(".apanel").forEach((x) => { x.hidden = x.id !== t; });
     saveState({ atab: t });
+    if (t !== "aTheme") applyTheme(savedTheme);
     say($("itemMsg"), "");
     if (t === "aOverview") loadOverview();
     else if (t === "aUsers") { loadUsers(); markSeen("users"); }
     else if (t === "aNotes") { loadSharedNotes(); markSeen("notes"); }
     else if (t === "aReports") loadReports();
     else if (t === "aStats") loadStats();
+    else if (t === "aTheme") loadThemeEditor();
     refreshAdminBadges();
   }
   document.querySelectorAll("#atabs button").forEach((b) => { b.onclick = () => showTab(b.dataset.tab); });
@@ -1082,6 +1158,60 @@
     const f = $("adminFilter").value.trim().toLowerCase();
     document.querySelectorAll("#adminList .row").forEach((r) => { r.hidden = !!f && !(r.dataset.t || "").includes(f); });
   };
+
+  const COLOR_FIELDS = [["ink", "צבע ראשי (כותרת העליונה והכפתורים)"], ["accent", "צבע הדגשה (תגיות, קישוטים וקווים)"], ["paper", "צבע הרקע"], ["text", "צבע הטקסט"]];
+  let draft = null;
+
+  async function loadThemeEditor() {
+    const { data } = await db.from("site_settings").select("theme").eq("id", 1).maybeSingle();
+    draft = Object.assign({}, DEFAULT_THEME, (data && data.theme) || {});
+    renderThemeEditor();
+  }
+
+  function renderThemeEditor() {
+    const pl = $("presetList");
+    pl.replaceChildren();
+    PRESETS.forEach((p) => {
+      const b = h("button", null, p.name);
+      b.type = "button";
+      b.onclick = () => { draft = Object.assign({}, p.colors); renderThemeEditor(); };
+      pl.append(b);
+    });
+    const box = $("colorFields");
+    box.replaceChildren();
+    COLOR_FIELDS.forEach(([k, label]) => {
+      const row = h("div", "row"), lab = h("label", null, label), inp = document.createElement("input");
+      lab.style.margin = "0";
+      inp.type = "color";
+      inp.id = "col_" + k;
+      inp.value = draft[k];
+      inp.style.cssText = "width:64px;height:40px;padding:2px;cursor:pointer";
+      lab.htmlFor = inp.id;
+      inp.oninput = () => { draft[k] = inp.value; applyTheme(draft); checkTheme(); };
+      row.append(lab, inp);
+      box.append(row);
+    });
+    applyTheme(draft);
+    checkTheme();
+    say($("themeMsg"), document.body.classList.contains("dark") ? "מצב כהה פעיל ולכן השינוי לא נראה. אפשר לעבור למצב בהיר כדי לראות את התצוגה." : "", "");
+  }
+
+  function checkTheme() {
+    const issues = themeIssues(draft), box = $("themeIssues");
+    box.replaceChildren();
+    issues.forEach((m) => box.append(h("p", "msg error", m)));
+    $("themeSave").disabled = issues.length > 0;
+  }
+
+  $("themeSave").onclick = async () => {
+    const { error } = await db.from("site_settings").upsert({ id: 1, theme: draft, updated_at: new Date().toISOString() });
+    if (error) { say($("themeMsg"), "השמירה נכשלה: " + error.message, "error"); return; }
+    savedTheme = Object.assign({}, draft);
+    localStorage.setItem("theme_cache", JSON.stringify(savedTheme));
+    say($("themeMsg"), "העיצוב נשמר וחל על כל האתר.", "ok");
+  };
+  $("themeCancel").onclick = () => { applyTheme(savedTheme); loadThemeEditor(); };
+  $("themeReset").onclick = () => { draft = Object.assign({}, DEFAULT_THEME); renderThemeEditor(); };
 
   async function loadAdmin() {
     if ($("hY").options.length < 2) initHeb();

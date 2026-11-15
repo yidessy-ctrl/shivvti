@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1f6f5b">
 <title>שבתי</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -134,6 +135,44 @@
   }
   @media print { nav { display:none !important; } }
   @media (prefers-reduced-motion:reduce) { * { transition:none !important; } }
+  /* ===== deep green theme v3: layered tones and depth ===== */
+  :root { --text:#23352f; --head:#17503f; --ink:#1f6f5b; --paper:#f2f5ee; --paper2:#e6eee3; --card:#ffffff; --line:#d9e3d6; --gold:#d4b86a; --accent:#8a6b22; --muted:#5f736a; --error:#b04040; --ok:#2f7a54; --tint:#e4efe7; --sec:#2b6f8a; --shadow:rgba(20,70,55,.12); }
+  body.dark { --text:#e6efe9; --head:#8fd0b9; --ink:#27806a; --paper:#0f1a17; --paper2:#0a1210; --card:#16241f; --line:#264038; --gold:#c9ad6e; --accent:#d9bc6d; --muted:#9db3aa; --error:#ff9b9b; --ok:#7fd8a6; --tint:#1c302a; --sec:#5aa9c4; --shadow:rgba(0,0,0,.45); }
+  body { background:var(--paper) linear-gradient(180deg,var(--paper) 0,var(--paper2) 100%) fixed; }
+  header { background:radial-gradient(circle at 12% -20%,rgba(255,255,255,.16),transparent 50%),linear-gradient(135deg,#16503f 0%,#1f6f5b 55%,#2a806a 100%); border-bottom:3px solid var(--gold); box-shadow:0 4px 18px var(--shadow), inset 0 -1px 0 rgba(255,255,255,.12); }
+  body.dark header { background:radial-gradient(circle at 12% -20%,rgba(255,255,255,.1),transparent 50%),linear-gradient(135deg,#0f3a30 0%,#17503f 55%,#1f6a57 100%); }
+  header h1 { color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.25); }
+  h2, h3 { color:var(--head); }
+  .card { border-color:var(--line); box-shadow:0 1px 2px var(--shadow), 0 10px 28px var(--shadow); }
+  .item { border-color:var(--line); border-inline-start:4px solid var(--gold); box-shadow:0 1px 2px var(--shadow), 0 4px 12px var(--shadow); }
+  .item:hover { box-shadow:0 2px 4px var(--shadow), 0 10px 26px var(--shadow); }
+  .primary, .btn, .atabs button[aria-selected="true"], .chips button[aria-pressed="true"] { background:linear-gradient(180deg,#24806a,#1b6552); box-shadow:inset 0 1px 0 rgba(255,255,255,.18), 0 2px 6px var(--shadow); }
+  .chips button[aria-pressed="true"], .atabs button[aria-selected="true"] { border-color:transparent; }
+  input, textarea, select { border:1px solid var(--line); box-shadow:inset 0 1px 2px rgba(20,70,55,.08); }
+  input:focus, textarea:focus, select:focus { border-color:var(--ink); }
+  .small { border-color:var(--ink); }
+  .badge.ok { background:var(--sec); }
+  .stat { box-shadow:0 1px 2px var(--shadow), 0 4px 12px var(--shadow); }
+  .stat .num { color:var(--ink); }
+  .hero2 { background:radial-gradient(circle at 90% 0%,rgba(212,184,106,.25),transparent 55%),linear-gradient(135deg,var(--tint),var(--card)); box-shadow:0 1px 2px var(--shadow), 0 8px 22px var(--shadow); }
+  .tabs button[aria-selected="true"] { border-bottom-color:var(--gold); }
+  /* ===== refined navigation ===== */
+  nav { gap:4px; }
+  nav button { color:rgba(255,255,255,.78); padding:8px 16px; border-bottom:2px solid transparent; transition:color .15s, border-color .15s, background .15s; position:relative; }
+  nav button:hover { color:#fff; background:rgba(255,255,255,.07); }
+  nav button[aria-current="true"] { color:#fff; border-bottom-color:var(--gold); }
+  nav .ic { width:22px; height:22px; flex:none; }
+  nav .lb { font-size:.95rem; font-weight:500; letter-spacing:.02em; }
+  @media (min-width:721px) { nav button + button::before { content:""; position:absolute; inset-inline-start:0; top:22%; bottom:22%; width:1px; background:rgba(255,255,255,.16); } }
+  .tbtn { border-color:rgba(212,184,106,.6); color:#fff; letter-spacing:.02em; transition:background .15s; }
+  .tbtn:hover { background:rgba(255,255,255,.08); }
+  @media (max-width:720px) {
+    nav button { color:var(--muted); }
+    nav button:hover { background:transparent; color:var(--text); }
+    nav button[aria-current="true"] { color:var(--accent); border-bottom-color:transparent; }
+    nav .ic { width:23px; height:23px; }
+    nav .lb { font-size:.74rem; letter-spacing:0; }
+  }
   [hidden] { display:none !important; }
 </style>
 </head>
@@ -142,12 +181,12 @@
 <header>
   <h1>שבתי<span class="badge" id="secBadge" hidden></span></h1>
   <nav id="nav" hidden>
-    <button data-view="homeView" id="navHome"><span class="ic">🏠</span><span class="lb">בית</span></button>
-    <button data-view="libraryView" id="navLib"><span class="ic">📚</span><span class="lb">ספרייה</span></button>
-    <button data-view="notesView" id="navNotes"><span class="ic">📝</span><span class="lb">הערות</span></button>
-    <button data-view="messagesView" id="navMsg"><span class="ic">💬</span><span class="lb">הודעות</span></button>
-    <button data-view="accountView" id="navAcc"><span class="ic">👤</span><span class="lb">אני</span></button>
-    <button data-view="adminView" id="navAdmin" hidden><span class="ic">⚙️</span><span class="lb">ניהול</span></button>
+    <button data-view="homeView" id="navHome"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg><span class="lb">בית</span></button>
+    <button data-view="libraryView" id="navLib"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6c-2-1.5-5-2-8-1.5v13c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5v-13c-3-.5-6 0-8 1.5z"/><path d="M12 6v13"/></svg><span class="lb">ספרייה</span></button>
+    <button data-view="notesView" id="navNotes"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h10l4 4v14H5z"/><path d="M15 3v4h4"/><path d="M8 12h8M8 16h5"/></svg><span class="lb">הערות</span></button>
+    <button data-view="messagesView" id="navMsg"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H10l-4 4v-4H4z"/></svg><span class="lb">הודעות</span></button>
+    <button data-view="accountView" id="navAcc"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg><span class="lb">אני</span></button>
+    <button data-view="adminView" id="navAdmin" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg><span class="lb">ניהול</span></button>
   </nav>
   <button id="logoutBtn" class="tbtn" type="button" hidden>התנתקות</button>
   <button id="themeBtn" class="tbtn" type="button">מצב כהה</button>

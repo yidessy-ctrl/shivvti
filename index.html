@@ -640,6 +640,7 @@ applyTheme(savedTheme);
     </div>
   </section>
 </main>
+<footer id="ver" style="text-align:center;margin:30px 0 10px;font-size:.8rem;color:var(--muted)">גרסת האתר: 16.11.2026 19:21</footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
@@ -711,7 +712,7 @@ applyTheme(savedTheme);
     VIEWS.forEach((x) => { $(x).hidden = x !== v; });
     if (!["authView", "resetView", "pickView", "setSectionView"].includes(v)) saveState({ view: v, scroll: 0 });
     if (v !== "threadView") { clearInterval(pollT); thread = null; cancelRec(); }
-    if (v !== "adminView") { applyTheme(savedTheme); restoreMode(); }
+    if (v !== "adminView") applyTheme(savedTheme);
     const hl = v === "itemView" ? "libraryView" : v === "sharedView" ? "accountView" : v === "threadView" ? "messagesView" : v;
     document.querySelectorAll("nav button[data-view]").forEach((b) =>
       b.setAttribute("aria-current", String(b.dataset.view === hl)));
@@ -868,8 +869,11 @@ applyTheme(savedTheme);
   async function loadLibrary() {
     $("itemsList").replaceChildren(h("p", "muted", "טוענים…"));
     await loadMeta();
-    const { data, error } = await db.from("items").select("id,kind,title,author,summary,created_at,category_id,rebbe_id,content_date,status,publish_at,audience").order("created_at", { ascending: false });
-    if (error) { $("itemsList").replaceChildren(h("p", "msg error", "לא הצלחנו לטעון את התכנים.")); return; }
+    let { data, error } = await db.from("items").select("id,kind,title,author,summary,created_at,category_id,rebbe_id,content_date,status,publish_at,audience").order("created_at", { ascending: false });
+    if (error) {
+      ({ data, error } = await db.from("items").select("id,kind,title,author,summary,created_at,category_id,rebbe_id,content_date").order("created_at", { ascending: false }));
+    }
+    if (error) { $("itemsList").replaceChildren(h("p", "msg error", "לא הצלחנו לטעון את התכנים: " + error.message)); return; }
     all = data;
     const nn = all.filter(isNew).length;
     $("newBtn").textContent = nn ? "התכנים החדשים (" + nn + ")" : "התכנים החדשים ביותר";
@@ -953,7 +957,7 @@ applyTheme(savedTheme);
     box.replaceChildren(h("p", "muted", "טוענים…"));
     const { data, error } = await db.from("items").select("*").eq("id", id).maybeSingle();
     box.replaceChildren();
-    if (error || !data) { box.append(h("p", "msg error", "התוכן לא נמצא.")); return; }
+    if (error || !data) { box.append(h("p", "msg error", "התוכן לא נמצא" + (error ? ": " + error.message : "."))); return; }
     box.append(h("div", "kind", cats[data.category_id] || KINDS[data.kind] || ""), h("h2", null, data.title));
     if (data.author) box.append(h("div", "meta", "מאת " + data.author));
     const info = [rebbeName[data.rebbe_id], data.content_date && "תאריך: " + dual(data.content_date)].filter(Boolean).join(", ");
@@ -1227,7 +1231,7 @@ applyTheme(savedTheme);
     document.querySelectorAll("#atabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === t)));
     document.querySelectorAll(".apanel").forEach((x) => { x.hidden = x.id !== t; });
     saveState({ atab: t });
-    if (t !== "aTheme") { applyTheme(savedTheme); restoreMode(); }
+    if (t !== "aTheme") applyTheme(savedTheme);
     say($("itemMsg"), "");
     if (t === "aOverview") loadOverview();
     else if (t === "aUsers") { loadUsers(); markSeen("users"); }
@@ -1252,7 +1256,7 @@ applyTheme(savedTheme);
     const { data, error } = await db.rpc("admin_item_stats");
     if (error) { box.replaceChildren(h("p", "msg error", "לא הצלחנו לטעון: " + error.message)); return; }
     box.replaceChildren();
-    if (!data.length) { box.append(h("p", "muted", "עדיין אין תכנים.")); return; }
+    if (!data || !data.length) { box.append(h("p", "muted", "עדיין אין תכנים.")); return; }
     data.forEach((r) => {
       const row = h("div", "row");
       row.append(h("span", null, r.title), h("span", "meta", r.readers + " פתחו, " + r.favs + " במועדפים, " + r.learned + " נלמד"));

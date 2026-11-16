@@ -413,6 +413,23 @@ applyTheme(savedTheme);
 
     <h2 class="sec">שיתפו איתי</h2>
     <div class="card"><div id="sharedToMe"></div></div>
+
+    <h2 class="sec">פינת הערות והארות למנהלי האתר</h2>
+    <div class="card">
+      <p class="meta">רעיון לשדרוג, דיווח על תקלה, הערה או שאלה: כאן אפשר לכתוב למנהלי האתר. הם יקראו, ואם צריך יענו כאן.</p>
+      <form id="contactForm">
+        <label for="ctType">סוג</label>
+        <select id="ctType"></select>
+        <label for="ctBody">מה תרצו לכתוב?</label>
+        <textarea id="ctBody" required maxlength="2000" rows="3" style="min-height:80px"></textarea>
+        <button class="small" type="submit" style="margin-top:8px">שליחה למנהלי האתר</button>
+      </form>
+      <p id="ctMsg" class="msg" role="status"></p>
+      <details>
+        <summary>ההודעות ששלחתי</summary>
+        <div id="ctList"></div>
+      </details>
+    </div>
   </section>
 
   <section id="sharedView" hidden>
@@ -481,6 +498,7 @@ applyTheme(savedTheme);
       <button data-tab="aReports" aria-selected="false">דיווחים<span class="badge" id="bReports" hidden></span></button>
       <button data-tab="aStats" aria-selected="false">סטטיסטיקות</button>
       <button data-tab="aTheme" aria-selected="false">עיצוב</button>
+      <button data-tab="aContact" aria-selected="false">הערות והארות<span class="badge" id="bContact" hidden></span></button>
     </div>
     <p id="itemMsg" class="msg" role="status"></p>
 
@@ -603,6 +621,17 @@ applyTheme(savedTheme);
         <button class="small" id="useDefDark" type="button">במצב כהה</button>
       </div>
       <p id="themeMsg" class="msg" role="status"></p>
+    </div>
+
+    <div class="card apanel" id="aContact" hidden>
+      <h2>הערות והארות ממשתמשים</h2>
+      <div class="chips" id="ctChips">
+        <button data-f="open" aria-pressed="true">חדשות</button>
+        <button data-f="all" aria-pressed="false">הכול</button>
+      </div>
+      <label for="ctTypeSel">סוג</label>
+      <select id="ctTypeSel"></select>
+      <div id="contactList"></div>
     </div>
 
     <div class="card apanel" id="aReports" hidden>
@@ -1129,15 +1158,17 @@ applyTheme(savedTheme);
 
   async function refreshAdminBadges() {
     if (!isAdmin || !me) return;
-    const [rep, usr, nts] = await Promise.all([
+    const [rep, usr, nts, cnt] = await Promise.all([
       countOf(head("reports").eq("resolved", false)),
       countOf(head("profiles").gt("created_at", seenAt("users"))),
-      countOf(head("notes").eq("shared", true).neq("user_id", me.id).gt("created_at", seenAt("notes")))
+      countOf(head("notes").eq("shared", true).neq("user_id", me.id).gt("created_at", seenAt("notes"))),
+      countOf(head("contact_messages").eq("status", "open"))
     ]);
     setBadge("bReports", rep);
     setBadge("bUsers", usr);
     setBadge("bNotes", nts);
-    const total = rep + usr + nts;
+    setBadge("bContact", cnt);
+    const total = rep + usr + nts + cnt;
     $("navAdmin").querySelector(".lb").textContent = "ניהול" + (total ? " (" + total + ")" : "");
   }
 
@@ -1204,6 +1235,7 @@ applyTheme(savedTheme);
     else if (t === "aReports") loadReports();
     else if (t === "aStats") loadStats();
     else if (t === "aTheme") loadThemeEditor();
+    else if (t === "aContact") loadContact();
     refreshAdminBadges();
   }
   document.querySelectorAll("#atabs button").forEach((b) => { b.onclick = () => showTab(b.dataset.tab); });
@@ -1343,6 +1375,58 @@ applyTheme(savedTheme);
   };
   $("useDefLight").onclick = () => persist({ ...S, active: { ...S.active, light: null } }, "האתר חזר לעיצוב המקורי במצב הרגיל.");
   $("useDefDark").onclick = () => persist({ ...S, active: { ...S.active, dark: null } }, "האתר חזר לעיצוב המקורי במצב הכהה.");
+
+  let ctFilter = "open", ctTypeF = "";
+  $("ctTypeSel").onchange = () => { ctTypeF = $("ctTypeSel").value; loadContact(); };
+  document.querySelectorAll("#ctChips button").forEach((b) => {
+    b.onclick = () => {
+      ctFilter = b.dataset.f;
+      document.querySelectorAll("#ctChips button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+      loadContact();
+    };
+  });
+
+  async function loadContact() {
+    refreshAdminBadges();
+    const box = $("contactList");
+    box.replaceChildren(h("p", "muted", "טוענים…"));
+    let q = db.from("contact_messages").select("id,user_id,topic,body,status,admin_reply,created_at,replied_at").order("created_at", { ascending: false }).limit(100);
+    if (ctFilter === "open") q = q.eq("status", "open");
+    if (ctTypeF) q = q.eq("topic", ctTypeF);
+    const { data, error } = await q;
+    if (error) { box.replaceChildren(h("p", "msg error", "לא הצלחנו לטעון הודעות: " + error.message)); return; }
+    box.replaceChildren();
+    if (!data.length) { box.append(h("p", "muted", ctFilter === "open" ? "אין הודעות חדשות." : "אין הודעות.")); return; }
+    const { data: ps } = await db.from("profiles").select("id,full_name").in("id", [...new Set(data.map((c) => c.user_id))]);
+    const nm = Object.fromEntries((ps || []).map((x) => [x.id, x.full_name || "משתמש"]));
+    data.forEach((c) => {
+      const el = h("div", "note"), t = h("div", null, nm[c.user_id] + " | " + c.topic);
+      t.append(h("span", "badge" + (c.status === "answered" ? " ok" : ""), CT_STATUS[c.status] || c.status));
+      el.append(t, h("p", null, c.body), h("div", "meta", dual(c.created_at)));
+      const r = document.createElement("textarea");
+      r.value = c.admin_reply || "";
+      r.maxLength = 2000;
+      r.placeholder = "תשובה למשתמש";
+      r.setAttribute("aria-label", "תשובה למשתמש");
+      r.style.marginTop = "8px";
+      const mk = (label, cls, fn) => { const b = h("button", cls, label); b.type = "button"; b.style.marginInlineEnd = "8px"; b.style.marginTop = "8px"; b.onclick = fn; return b; };
+      const send = mk("שליחת תשובה", "small", async () => {
+        const text = r.value.trim();
+        if (!text) return;
+        const { error: err } = await db.from("contact_messages").update({ admin_reply: text, status: "answered", replied_at: new Date().toISOString() }).eq("id", c.id);
+        if (err) { say($("itemMsg"), "השליחה נכשלה: " + err.message, "error"); return; }
+        loadContact();
+      });
+      const close = mk("סימון כטופל", "small", async () => { await db.from("contact_messages").update({ status: "closed" }).eq("id", c.id); loadContact(); });
+      const del = mk("מחיקה", "del", async () => {
+        if (!confirm("למחוק את הפנייה?")) return;
+        await db.from("contact_messages").delete().eq("id", c.id);
+        loadContact();
+      });
+      el.append(r, send, close, del);
+      box.append(el);
+    });
+  }
 
   async function loadAdmin() {
     if ($("hY").options.length < 2) initHeb();
@@ -1866,6 +1950,7 @@ applyTheme(savedTheme);
   }
 
   async function loadAccountLists() {
+    loadMyContacts();
     const cols = "items(id,kind,title,author,summary,created_at)";
     const [rec, fav] = await Promise.all([
       db.from("history").select("opened_at," + cols).eq("user_id", me.id).order("opened_at", { ascending: false }).limit(5),
@@ -2205,6 +2290,42 @@ applyTheme(savedTheme);
   };
   $("backInbox").onclick = () => { show("messagesView"); loadInbox(); };
   $("navMsg").onclick = () => { show("messagesView"); loadInbox(); };
+
+  /* ---------- הארות ופניות למנהלים ---------- */
+  const CT_STATUS = { open: "התקבלה", answered: "נענתה", closed: "טופלה" };
+  const CT_TYPES = ["רעיון לשדרוג", "דיווח על תקלה", "הערה או הארה", "שאלה", "אחר"];
+  CT_TYPES.forEach((t) => $("ctType").append(new Option(t, t)));
+  $("ctTypeSel").append(new Option("כל הסוגים", ""));
+  CT_TYPES.forEach((t) => $("ctTypeSel").append(new Option(t, t)));
+  async function loadMyContacts() {
+    const box = $("ctList");
+    const { data, error } = await db.from("contact_messages").select("topic,body,status,admin_reply,created_at,replied_at").eq("user_id", me.id).order("created_at", { ascending: false }).limit(30);
+    box.replaceChildren();
+    if (error) { box.append(h("p", "msg error", "לא הצלחנו לטעון הודעות: " + error.message)); return; }
+    if (!data.length) { box.append(h("p", "muted", "עדיין לא שלחת הודעות.")); return; }
+    data.forEach((c) => {
+      const el = h("div", "note"), t = h("div", null, c.topic);
+      t.append(h("span", "badge" + (c.status === "answered" ? " ok" : ""), CT_STATUS[c.status] || c.status));
+      el.append(t, h("p", null, c.body), h("div", "meta", dual(c.created_at)));
+      if (c.admin_reply) {
+        el.append(h("div", "meta", "תשובת המנהלים" + (c.replied_at ? ", " + dual(c.replied_at) : "") + ":"), h("blockquote", null, c.admin_reply));
+      }
+      box.append(el);
+    });
+  }
+  $("contactForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const body = $("ctBody").value.trim();
+    if (!body) return;
+    const { error } = await db.from("contact_messages").insert({ user_id: me.id, topic: $("ctType").value, body });
+    if (error) {
+      say($("ctMsg"), /row-level/i.test(error.message) ? "אי אפשר לשלוח כרגע. ייתכן ששלחת יותר מדי הודעות ביממה האחרונה." : "השליחה נכשלה: " + error.message, "error");
+      return;
+    }
+    $("ctBody").value = "";
+    say($("ctMsg"), "תודה! ההודעה נשלחה למנהלי האתר. אם יענו, התשובה תופיע כאן, תחת “ההודעות ששלחתי”.", "ok");
+    loadMyContacts();
+  });
 
   /* ---------- דף הבית ---------- */
   async function loadHome() {

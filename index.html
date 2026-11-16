@@ -137,7 +137,7 @@
   @media (prefers-reduced-motion:reduce) { * { transition:none !important; } }
   /* ===== deep green theme v3: layered tones and depth ===== */
   :root { --text:#23352f; --head:#17503f; --ink:#1f6f5b; --paper:#f2f5ee; --paper2:#e6eee3; --card:#ffffff; --line:#d9e3d6; --gold:#d4b86a; --accent:#8a6b22; --muted:#5f736a; --error:#b04040; --ok:#2f7a54; --tint:#e4efe7; --sec:#2b6f8a; --shadow:rgba(20,70,55,.12); --g1:#16503f; --g2:#1f6f5b; --g3:#2a806a; --b1:#24806a; --b2:#1b6552; }
-  body.dark { --text:#e6efe9; --head:#8fd0b9; --ink:#27806a; --paper:#0f1a17; --paper2:#0a1210; --card:#16241f; --line:#264038; --gold:#c9ad6e; --accent:#d9bc6d; --muted:#9db3aa; --error:#ff9b9b; --ok:#7fd8a6; --tint:#1c302a; --sec:#5aa9c4; --shadow:rgba(0,0,0,.45); --g1:#0f3a30; --g2:#17503f; --g3:#1f6a57; --b1:#24806a; --b2:#1b6552; }
+  body.dark { --text:#e6efe9; --head:#8fd0b9; --ink:#237b65; --paper:#0f1a17; --paper2:#0a1210; --card:#16241f; --line:#264038; --gold:#c9ad6e; --accent:#d9bc6d; --muted:#9db3aa; --error:#ff9b9b; --ok:#7fd8a6; --tint:#1c302a; --sec:#5aa9c4; --shadow:rgba(0,0,0,.45); --g1:#0f3a30; --g2:#17503f; --g3:#1f6a57; --b1:#24806a; --b2:#1b6552; }
   body { background:var(--paper) linear-gradient(180deg,var(--paper) 0,var(--paper2) 100%) fixed; }
   header { background:radial-gradient(circle at 12% -20%,rgba(255,255,255,.16),transparent 50%),linear-gradient(135deg,var(--g1) 0%,var(--g2) 55%,var(--g3) 100%); border-bottom:3px solid var(--gold); box-shadow:0 4px 18px var(--shadow), inset 0 -1px 0 rgba(255,255,255,.12); }
   body.dark header { background:radial-gradient(circle at 12% -20%,rgba(255,255,255,.1),transparent 50%),linear-gradient(135deg,#0f3a30 0%,#17503f 55%,#1f6a57 100%); }
@@ -173,10 +173,21 @@
     nav .ic { width:23px; height:23px; }
     nav .lb { font-size:.74rem; letter-spacing:0; }
   }
+  .sw { display:inline-block; width:18px; height:18px; border-radius:50%; border:1px solid rgba(0,0,0,.18); vertical-align:middle; margin-inline-end:4px; }
+  .sample { border-radius:14px; overflow:hidden; border:1px solid var(--line); background:var(--paper); margin:14px 0; }
+  .sample .sh { background:linear-gradient(135deg,var(--g1) 0%,var(--g2) 55%,var(--g3) 100%); color:#fff; padding:10px 16px; border-bottom:3px solid var(--gold); font-family:"Frank Ruhl Libre",serif; font-size:1.3rem; }
+  .sample .sb { padding:14px; color:var(--text); }
+  .sample .sc { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px; box-shadow:0 1px 2px var(--shadow), 0 6px 16px var(--shadow); }
+  .sample h4 { margin:0 0 6px; color:var(--head); font-family:"Frank Ruhl Libre",serif; font-size:1.15rem; }
+  .sample p { margin:0 0 10px; color:var(--muted); }
+  .sample .sbtn { background:linear-gradient(180deg,var(--b1),var(--b2)); color:#fff; border:0; border-radius:10px; padding:6px 16px; font:inherit; }
+  .sample .sbadge { background:var(--accent); color:#fff; border-radius:999px; padding:0 8px; font-size:.85rem; margin-inline-start:6px; }
+  .sample.dk .sbadge { color:#1b2336; }
   [hidden] { display:none !important; }
 </style>
 <script>
 var DEFAULT_THEME = { ink: "#1f6f5b", accent: "#8a6b22", paper: "#f2f5ee", text: "#23352f" };
+var DARK_DEFAULT = { ink: "#27806a", accent: "#d9bc6d", paper: "#0f1a17", text: "#e6efe9" };
 var PRESETS = [
   { name: "ירוק עמוק", colors: { ink: "#1f6f5b", accent: "#8a6b22", paper: "#f2f5ee", text: "#23352f" } },
   { name: "כחול ספיר", colors: { ink: "#3d5a98", accent: "#8d6d24", paper: "#f6f4ef", text: "#2c3550" } },
@@ -184,6 +195,11 @@ var PRESETS = [
   { name: "סגול מלכותי", colors: { ink: "#5b3f8f", accent: "#8a6b22", paper: "#f5f2f8", text: "#2d2640" } },
   { name: "ים וחול", colors: { ink: "#1d6a7a", accent: "#9a6a2a", paper: "#f3f4ee", text: "#1f3338" } },
   { name: "פחם וזהב", colors: { ink: "#3b4350", accent: "#8a6b22", paper: "#f5f4f1", text: "#262b33" } }
+];
+var DARK_PRESETS = [
+  { name: "יער לילה", colors: { ink: "#27806a", accent: "#d9bc6d", paper: "#0f1a17", text: "#e6efe9" } },
+  { name: "כחול לילה", colors: { ink: "#4f6db0", accent: "#d6b66a", paper: "#111827", text: "#e8eaf2" } },
+  { name: "בורדו לילה", colors: { ink: "#a8435e", accent: "#d9bc6d", paper: "#1a1215", text: "#f0e6e8" } }
 ];
 function hex2(h) { return [1, 3, 5].map(function (i) { return parseInt(h.slice(i, i + 2), 16); }); }
 function toHex(a) { return "#" + a.map(function (v) { return Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, "0"); }).join(""); }
@@ -193,7 +209,17 @@ function lum(h) {
   return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
 }
 function contrast(a, b) { var x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
-function themeVars(t) {
+function themeVars(t, dark) {
+  if (dark) {
+    var card = mix(t.paper, "#ffffff", 0.07);
+    return {
+      "--ink": t.ink, "--accent": t.accent, "--gold": t.accent, "--paper": t.paper, "--text": t.text,
+      "--paper2": mix(t.paper, "#000000", 0.35), "--card": card, "--line": mix(t.paper, "#ffffff", 0.14),
+      "--tint": mix(card, t.ink, 0.2), "--head": mix(t.ink, "#ffffff", 0.55), "--muted": mix(t.text, t.paper, 0.35),
+      "--g1": mix(t.ink, "#000000", 0.45), "--g2": mix(t.ink, "#000000", 0.2), "--g3": t.ink,
+      "--b1": t.ink, "--b2": mix(t.ink, "#000000", 0.2), "--shadow": "rgba(0,0,0,.45)"
+    };
+  }
   var r = hex2(mix(t.ink, "#000000", 0.5));
   return {
     "--ink": t.ink, "--accent": t.accent, "--paper": t.paper, "--text": t.text,
@@ -205,22 +231,44 @@ function themeVars(t) {
     "--shadow": "rgba(" + r.join(",") + ",.14)"
   };
 }
-function applyTheme(t) {
-  var st = document.documentElement.style, base = themeVars(DEFAULT_THEME);
-  Object.keys(base).forEach(function (k) { st.removeProperty(k); });
-  var meta = document.querySelector('meta[name="theme-color"]');
-  if (!t || !t.ink) { if (meta) meta.setAttribute("content", DEFAULT_THEME.ink); return; }
-  var w = themeVars(Object.assign({}, DEFAULT_THEME, t));
-  Object.keys(w).forEach(function (k) { st.setProperty(k, w[k]); });
-  if (meta) meta.setAttribute("content", t.ink);
-}
-function themeIssues(t) {
-  var c = Object.assign({}, DEFAULT_THEME, t), out = [];
+function themeIssues(c, mode) {
+  var dark = mode === "dark", out = [];
+  c = Object.assign({}, dark ? DARK_DEFAULT : DEFAULT_THEME, c);
+  if (dark) {
+    var card = mix(c.paper, "#ffffff", 0.07);
+    if (contrast("#ffffff", c.ink) < 4.5) out.push("הצבע הראשי בהיר מדי: הכיתוב הלבן בכותרת ובכפתורים לא יהיה קריא. כדאי לבחור גוון כהה יותר.");
+    if (lum(c.paper) > 0.12) out.push("הרקע בהיר מדי למצב כהה. כדאי לבחור גוון כהה יותר.");
+    if (contrast(c.text, c.paper) < 7 || contrast(c.text, card) < 7) out.push("צבע הטקסט קרוב מדי לצבע הרקע, והקריאה תהיה קשה. כדאי לבחור טקסט בהיר יותר.");
+    if (contrast(c.accent, card) < 4.5 || contrast("#1b2336", c.accent) < 4.5) out.push("צבע ההדגשה כהה מדי במצב כהה. כדאי לבחור גוון בהיר יותר.");
+    return out;
+  }
   if (contrast("#ffffff", mix(c.ink, "#ffffff", 0.12)) < 4.5) out.push("הצבע הראשי בהיר מדי: הכיתוב הלבן בכותרת ובכפתורים לא יהיה קריא. כדאי לבחור גוון כהה יותר.");
   if (contrast("#ffffff", c.accent) < 4.5) out.push("צבע ההדגשה בהיר מדי: הכיתוב הלבן בתגיות לא יהיה קריא. כדאי לבחור גוון כהה יותר.");
-  if (lum(c.paper) < 0.6) out.push("הרקע כהה מדי. האתר בנוי לרקע בהיר, ולמצב כהה יש פלטה משלו.");
+  if (lum(c.paper) < 0.6) out.push("הרקע כהה מדי למצב רגיל. לרקע כהה אפשר ליצור פלטה למצב כהה.");
   if (contrast(c.text, c.paper) < 7 || contrast(c.text, "#ffffff") < 7) out.push("צבע הטקסט קרוב מדי לצבע הרקע, והקריאה תהיה קשה. כדאי לבחור גוון כהה יותר לטקסט.");
   return out;
+}
+function normalizeSettings(t) {
+  t = t || {};
+  if (t.palettes) return { palettes: t.palettes, active: Object.assign({ light: null, dark: null }, t.active || {}) };
+  if (t.ink) return { palettes: [{ id: "p1", name: "הפלטה שלי", mode: "light", colors: { ink: t.ink, accent: t.accent || DEFAULT_THEME.accent, paper: t.paper || DEFAULT_THEME.paper, text: t.text || DEFAULT_THEME.text } }], active: { light: "p1", dark: null } };
+  return { palettes: [], active: { light: null, dark: null } };
+}
+function paletteFor(S, mode) {
+  var id = S.active && S.active[mode];
+  var p = (S.palettes || []).filter(function (x) { return x.id === id; })[0];
+  return p ? p.colors : null;
+}
+var ALL_THEME_KEYS = Object.keys(themeVars(DEFAULT_THEME, false)).concat(Object.keys(themeVars(DARK_DEFAULT, true)));
+function applyTheme(settings) {
+  var S = normalizeSettings(settings), root = document.documentElement.style, body = document.body;
+  var dark = !!(body && body.classList.contains("dark"));
+  ALL_THEME_KEYS.forEach(function (k) { root.removeProperty(k); if (body) body.style.removeProperty(k); });
+  var lt = paletteFor(S, "light"), dk = paletteFor(S, "dark");
+  if (lt) { var v = themeVars(Object.assign({}, DEFAULT_THEME, lt), false); Object.keys(v).forEach(function (k) { root.setProperty(k, v[k]); }); }
+  if (dark && dk && body) { var w = themeVars(Object.assign({}, DARK_DEFAULT, dk), true); Object.keys(w).forEach(function (k) { body.style.setProperty(k, w[k]); }); }
+  var meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute("content", dark ? (dk ? dk.ink : DARK_DEFAULT.ink) : (lt ? lt.ink : DEFAULT_THEME.ink));
 }
 var savedTheme = {};
 try { savedTheme = JSON.parse(localStorage.getItem("theme_cache") || "{}") || {}; } catch (e) {}
@@ -518,16 +566,41 @@ applyTheme(savedTheme);
 
     <div class="card apanel" id="aTheme" hidden>
       <h2>עיצוב האתר</h2>
-      <p class="meta">בחרי פלטה מוכנה או התאימי צבעים בעצמך. השינוי מוצג מיד, ונשמר לכל המשתמשים רק אחרי לחיצה על שמירה. מצב כהה משתמש בפלטה משלו.</p>
-      <h3 class="sub">פלטות מוכנות</h3>
-      <div class="chips" id="presetList"></div>
-      <h3 class="sub">צבעים</h3>
-      <div id="colorFields"></div>
-      <div id="themeIssues"></div>
+      <p class="meta">אפשר ליצור פלטות צבעים משלך, ולבחור איזו פלטה תפעל במצב הרגיל ואיזו במצב הכהה. הבחירה חלה על כל המשתמשים.</p>
+      <h3 class="sub">הפלטות שלי</h3>
+      <div id="palList"></div>
+      <p><button class="small" id="palNew" type="button">+ פלטה חדשה</button></p>
+      <div id="palEditor" hidden>
+        <h3 class="sub" id="palTitle">פלטה חדשה</h3>
+        <p class="meta">להתחלה מהירה אפשר לבחור תבנית:</p>
+        <div class="chips" id="presetList"></div>
+        <label for="palName">שם הפלטה</label>
+        <input id="palName" maxlength="40">
+        <label for="palMode">מצב</label>
+        <select id="palMode">
+          <option value="light">מצב רגיל</option>
+          <option value="dark">מצב כהה</option>
+        </select>
+        <p class="meta">שינוי המצב מאפס את הצבעים לברירת המחדל של המצב.</p>
+        <div id="colorFields"></div>
+        <div class="sample" id="samplePrev">
+          <div class="sh">שבתי</div>
+          <div class="sb"><div class="sc">
+            <h4>כותרת לדוגמה<span class="sbadge">חדש</span></h4>
+            <p>טקסט לדוגמה בצבעים שבחרת, כדי לבדוק שהקריאה נוחה.</p>
+            <button type="button" class="sbtn">כפתור</button>
+          </div></div>
+        </div>
+        <div id="themeIssues"></div>
+        <div class="tools">
+          <button class="primary" style="width:auto;margin:0" id="palSave" type="button">שמירת הפלטה</button>
+          <button class="small" id="palCancel" type="button">ביטול</button>
+        </div>
+      </div>
+      <h3 class="sub">חזרה לעיצוב המקורי</h3>
       <div class="tools">
-        <button class="primary" style="width:auto;margin:0" id="themeSave" type="button">שמירה לכל האתר</button>
-        <button class="small" id="themeCancel" type="button">ביטול שינויים</button>
-        <button class="small" id="themeReset" type="button">חזרה לברירת מחדל</button>
+        <button class="small" id="useDefLight" type="button">במצב רגיל</button>
+        <button class="small" id="useDefDark" type="button">במצב כהה</button>
       </div>
       <p id="themeMsg" class="msg" role="status"></p>
     </div>
@@ -609,7 +682,7 @@ applyTheme(savedTheme);
     VIEWS.forEach((x) => { $(x).hidden = x !== v; });
     if (!["authView", "resetView", "pickView", "setSectionView"].includes(v)) saveState({ view: v, scroll: 0 });
     if (v !== "threadView") { clearInterval(pollT); thread = null; cancelRec(); }
-    if (v !== "adminView") applyTheme(savedTheme);
+    if (v !== "adminView") { applyTheme(savedTheme); restoreMode(); }
     const hl = v === "itemView" ? "libraryView" : v === "sharedView" ? "accountView" : v === "threadView" ? "messagesView" : v;
     document.querySelectorAll("nav button[data-view]").forEach((b) =>
       b.setAttribute("aria-current", String(b.dataset.view === hl)));
@@ -1123,7 +1196,7 @@ applyTheme(savedTheme);
     document.querySelectorAll("#atabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === t)));
     document.querySelectorAll(".apanel").forEach((x) => { x.hidden = x.id !== t; });
     saveState({ atab: t });
-    if (t !== "aTheme") applyTheme(savedTheme);
+    if (t !== "aTheme") { applyTheme(savedTheme); restoreMode(); }
     say($("itemMsg"), "");
     if (t === "aOverview") loadOverview();
     else if (t === "aUsers") { loadUsers(); markSeen("users"); }
@@ -1160,21 +1233,78 @@ applyTheme(savedTheme);
   };
 
   const COLOR_FIELDS = [["ink", "צבע ראשי (כותרת העליונה והכפתורים)"], ["accent", "צבע הדגשה (תגיות, קישוטים וקווים)"], ["paper", "צבע הרקע"], ["text", "צבע הטקסט"]];
-  let draft = null;
+  let S = null, editing = null;
+  const newPalId = () => "p" + Math.random().toString(36).slice(2, 9);
 
   async function loadThemeEditor() {
     const { data } = await db.from("site_settings").select("theme").eq("id", 1).maybeSingle();
-    draft = Object.assign({}, DEFAULT_THEME, (data && data.theme) || {});
+    S = normalizeSettings(data && data.theme);
+    editing = null;
     renderThemeEditor();
   }
 
+  async function persist(next, okMsg) {
+    const { error } = await db.from("site_settings").upsert({ id: 1, theme: next, updated_at: new Date().toISOString() });
+    if (error) { say($("themeMsg"), "השמירה נכשלה: " + error.message, "error"); return false; }
+    S = next;
+    savedTheme = next;
+    localStorage.setItem("theme_cache", JSON.stringify(next));
+    applyTheme(next);
+    say($("themeMsg"), okMsg, "ok");
+    return true;
+  }
+
+  function paintSample() {
+    const el = $("samplePrev"), dark = editing.mode === "dark";
+    const v = themeVars(Object.assign({}, dark ? DARK_DEFAULT : DEFAULT_THEME, editing.colors), dark);
+    if (!dark) v["--card"] = "#ffffff";
+    Object.keys(v).forEach((k) => el.style.setProperty(k, v[k]));
+    el.classList.toggle("dk", dark);
+  }
+
+  function checkTheme() {
+    const issues = themeIssues(editing.colors, editing.mode), box = $("themeIssues");
+    box.replaceChildren();
+    issues.forEach((m) => box.append(h("p", "msg error", m)));
+    $("palSave").disabled = issues.length > 0;
+  }
+
   function renderThemeEditor() {
+    const list = $("palList");
+    list.replaceChildren();
+    const activeName = (m) => { const p = S.palettes.find((x) => x.id === S.active[m]); return p ? p.name : "העיצוב המקורי"; };
+    list.append(h("p", "meta", "פעילה עכשיו. מצב רגיל: " + activeName("light") + ". מצב כהה: " + activeName("dark") + "."));
+    if (!S.palettes.length) list.append(h("p", "muted", "עדיין אין פלטות משלך. אפשר ללחוץ על “פלטה חדשה”."));
+    S.palettes.forEach((p) => {
+      const row = h("div", "row"), info = h("div"), sw = h("div"), t = h("div", null, p.name), on = S.active[p.mode] === p.id;
+      ["ink", "accent", "paper", "text"].forEach((k) => { const d = h("span", "sw"); d.style.background = p.colors[k]; sw.append(d); });
+      t.append(h("span", "badge", p.mode === "dark" ? "כהה" : "רגילה"));
+      if (on) t.append(h("span", "badge ok", "פעילה"));
+      info.append(sw, t);
+      const act = h("div"), mk = (label, cls, fn) => { const b = h("button", cls, label); b.type = "button"; b.style.marginInlineStart = "8px"; b.onclick = fn; act.append(b); };
+      mk(on ? "ביטול הפעלה" : "הפעלה", "small", () => persist({ ...S, active: { ...S.active, [p.mode]: on ? null : p.id } }, on ? "הפלטה הופסקה, והאתר חזר לעיצוב המקורי של המצב." : "הפלטה הופעלה ב" + (p.mode === "dark" ? "מצב כהה" : "מצב רגיל") + "."));
+      mk("עריכה", "small", () => { editing = { id: p.id, name: p.name, mode: p.mode, colors: { ...p.colors } }; renderThemeEditor(); $("palEditor").scrollIntoView({ behavior: "smooth" }); });
+      mk("מחיקה", "del", async () => {
+        if (!confirm("למחוק את הפלטה “" + p.name + "”?")) return;
+        const active = { ...S.active };
+        ["light", "dark"].forEach((m) => { if (active[m] === p.id) active[m] = null; });
+        if (await persist({ palettes: S.palettes.filter((x) => x.id !== p.id), active }, "הפלטה נמחקה.")) { editing = null; renderThemeEditor(); }
+      });
+      row.append(info, act);
+      list.append(row);
+    });
+
+    $("palEditor").hidden = !editing;
+    if (!editing) return;
+    $("palTitle").textContent = editing.id ? "עריכת פלטה" : "פלטה חדשה";
+    $("palName").value = editing.name;
+    $("palMode").value = editing.mode;
     const pl = $("presetList");
     pl.replaceChildren();
-    PRESETS.forEach((p) => {
-      const b = h("button", null, p.name);
+    (editing.mode === "dark" ? DARK_PRESETS : PRESETS).forEach((pr) => {
+      const b = h("button", null, pr.name);
       b.type = "button";
-      b.onclick = () => { draft = Object.assign({}, p.colors); renderThemeEditor(); };
+      b.onclick = () => { editing.colors = { ...pr.colors }; if (!editing.name.trim()) editing.name = pr.name; renderThemeEditor(); };
       pl.append(b);
     });
     const box = $("colorFields");
@@ -1184,34 +1314,35 @@ applyTheme(savedTheme);
       lab.style.margin = "0";
       inp.type = "color";
       inp.id = "col_" + k;
-      inp.value = draft[k];
+      inp.value = editing.colors[k];
       inp.style.cssText = "width:64px;height:40px;padding:2px;cursor:pointer";
       lab.htmlFor = inp.id;
-      inp.oninput = () => { draft[k] = inp.value; applyTheme(draft); checkTheme(); };
+      inp.oninput = () => { editing.colors[k] = inp.value; paintSample(); checkTheme(); };
       row.append(lab, inp);
       box.append(row);
     });
-    applyTheme(draft);
+    paintSample();
     checkTheme();
-    say($("themeMsg"), document.body.classList.contains("dark") ? "מצב כהה פעיל ולכן השינוי לא נראה. אפשר לעבור למצב בהיר כדי לראות את התצוגה." : "", "");
   }
 
-  function checkTheme() {
-    const issues = themeIssues(draft), box = $("themeIssues");
-    box.replaceChildren();
-    issues.forEach((m) => box.append(h("p", "msg error", m)));
-    $("themeSave").disabled = issues.length > 0;
-  }
-
-  $("themeSave").onclick = async () => {
-    const { error } = await db.from("site_settings").upsert({ id: 1, theme: draft, updated_at: new Date().toISOString() });
-    if (error) { say($("themeMsg"), "השמירה נכשלה: " + error.message, "error"); return; }
-    savedTheme = Object.assign({}, draft);
-    localStorage.setItem("theme_cache", JSON.stringify(savedTheme));
-    say($("themeMsg"), "העיצוב נשמר וחל על כל האתר.", "ok");
+  $("palName").oninput = () => { if (editing) editing.name = $("palName").value; };
+  $("palMode").onchange = () => {
+    editing.mode = $("palMode").value;
+    editing.colors = { ...(editing.mode === "dark" ? DARK_DEFAULT : DEFAULT_THEME) };
+    renderThemeEditor();
   };
-  $("themeCancel").onclick = () => { applyTheme(savedTheme); loadThemeEditor(); };
-  $("themeReset").onclick = () => { draft = Object.assign({}, DEFAULT_THEME); renderThemeEditor(); };
+  $("palNew").onclick = () => { editing = { id: null, name: "", mode: "light", colors: { ...DEFAULT_THEME } }; renderThemeEditor(); $("palEditor").scrollIntoView({ behavior: "smooth" }); };
+  $("palCancel").onclick = () => { editing = null; renderThemeEditor(); };
+  $("palSave").onclick = async () => {
+    const pal = { id: editing.id || newPalId(), name: editing.name.trim() || "פלטה ללא שם", mode: editing.mode, colors: editing.colors };
+    const palettes = editing.id ? S.palettes.map((p) => (p.id === pal.id ? pal : p)) : [...S.palettes, pal];
+    const active = { ...S.active };
+    const prev = editing.id && S.palettes.find((p) => p.id === editing.id);
+    if (prev && prev.mode !== pal.mode) ["light", "dark"].forEach((m) => { if (active[m] === pal.id && m !== pal.mode) active[m] = null; });
+    if (await persist({ palettes, active }, "הפלטה נשמרה. אם היא פעילה, השינוי כבר חל באתר. אחרת אפשר ללחוץ על “הפעלה”.")) { editing = null; renderThemeEditor(); }
+  };
+  $("useDefLight").onclick = () => persist({ ...S, active: { ...S.active, light: null } }, "האתר חזר לעיצוב המקורי במצב הרגיל.");
+  $("useDefDark").onclick = () => persist({ ...S, active: { ...S.active, dark: null } }, "האתר חזר לעיצוב המקורי במצב הכהה.");
 
   async function loadAdmin() {
     if ($("hY").options.length < 2) initHeb();
@@ -1593,11 +1724,13 @@ applyTheme(savedTheme);
 
   const paintTheme = () => { $("themeBtn").textContent = document.body.classList.contains("dark") ? "מצב בהיר" : "מצב כהה"; };
   if (localStorage.getItem("theme") === "dark") document.body.classList.add("dark");
+  applyTheme(savedTheme);
   paintTheme();
   $("themeBtn").onclick = () => {
     const d = document.body.classList.toggle("dark");
     localStorage.setItem("theme", d ? "dark" : "light");
     paintTheme();
+    applyTheme(savedTheme);
   };
 
   function highlightQuotes(quotes) {

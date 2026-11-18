@@ -525,13 +525,14 @@ applyTheme(savedTheme);
       <input id="iAuthor">
       <label for="iSummary">תקציר קצר</label>
       <input id="iSummary">
-      <label for="iFile">קבצים במראה המקורי (PDF או תמונות, אפשר כמה)</label>
-      <input id="iFile" type="file" multiple accept=".pdf,image/*">
+      <label for="iFile">קבצים (PDF, תמונות, שמע ווידאו, אפשר כמה)</label>
+      <input id="iFile" type="file" multiple accept=".pdf,image/*,audio/*,video/*">
       <div id="attachList"></div>
       <label for="iMedia">קישור לשמע או לוידאו (https://)</label>
       <input id="iMedia" dir="ltr">
       <label for="iBody">טקסט (פסקאות מופרדות בשורה ריקה)</label>
       <textarea id="iBody"></textarea>
+      <label class="check"><input type="checkbox" id="iDl" checked> לאפשר למשתמשים להוריד את הקבצים והקלטות</label>
       <label for="iAud">קהל</label>
       <select id="iAud">
         <option value="both">שני המדורים</option>
@@ -927,6 +928,52 @@ applyTheme(savedTheme);
     el.addEventListener("ended", () => localStorage.removeItem(k));
   }
 
+  function dlButton(f) {
+    const b = h("button", "btn", "הורדה");
+    b.type = "button";
+    b.style.cssText = "border:0;font:inherit;cursor:pointer";
+    b.onclick = async () => {
+      b.disabled = true;
+      const { data, error } = await db.storage.from("files").createSignedUrl(f.path, 120, { download: f.name || true });
+      b.disabled = false;
+      if (error || !data) { alert("ההורדה נכשלה" + (error ? ": " + error.message : "")); return; }
+      const a = document.createElement("a");
+      a.href = data.signedUrl;
+      a.download = f.name || "";
+      document.body.append(a);
+      a.click();
+      a.remove();
+    };
+    return b;
+  }
+
+  function extDownload(url) {
+    const b = h("button", "btn", "הורדה");
+    b.type = "button";
+    b.style.cssText = "border:0;font:inherit;cursor:pointer;margin-top:8px";
+    b.onclick = async () => {
+      b.disabled = true;
+      b.textContent = "מורידים…";
+      try {
+        const r = await fetch(url);
+        if (!r.ok) throw new Error(r.status);
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(await r.blob());
+        a.download = decodeURIComponent(url.split("?")[0].split("/").pop() || "download");
+        document.body.append(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      } catch (e) {
+        window.open(url, "_blank", "noopener");
+        alert("הדפדפן לא מאפשר הורדה ישירה מהאתר שבו הקובץ נמצא. הקובץ נפתח בחלון חדש, ושם אפשר ללחוץ לחיצה ימנית ולבחור “שמירה בשם”.");
+      }
+      b.disabled = false;
+      b.textContent = "הורדה";
+    };
+    return b;
+  }
+
   function mediaEl(url, key) {
     if (!url || !/^https:\/\//i.test(url)) return null;
     const wrap = h("div", "media");
@@ -971,25 +1018,35 @@ applyTheme(savedTheme);
     box.append(tools);
     db.from("history").upsert({ user_id: me.id, item_id: id, opened_at: new Date().toISOString() }, { onConflict: "user_id,item_id" }).then(() => {});
     const fl = [...(data.file_path ? [{ path: data.file_path, name: "" }] : []), ...(data.files || [])];
+    const canDl = data.allow_download !== false;
     const m = mediaEl(data.media_url, id);
+    if (m && canDl && /\.(mp3|m4a|wav|ogg|aac|flac|mp4|webm|mov|m4v)(\?|$)/i.test(data.media_url || "")) m.append(extDownload(data.media_url));
     if (m) box.append(m);
     for (const f of fl) {
       const { data: su } = await db.storage.from("files").createSignedUrl(f.path, 3600);
       if (!su) continue;
-      const wrap = h("div", "media");
+      const wrap = h("div", "media"), url = su.signedUrl;
+      let el;
       if (f.name) wrap.append(h("div", "meta", f.name));
       if (/\.(png|jpe?g|gif|webp)$/i.test(f.path)) {
-        const im = document.createElement("img");
-        im.src = su.signedUrl; im.alt = f.name || data.title; im.style.maxWidth = "100%";
-        wrap.append(im);
+        el = document.createElement("img");
+        el.src = url; el.alt = f.name || data.title; el.style.maxWidth = "100%";
+      } else if (/\.(mp3|m4a|wav|ogg|aac|flac)$/i.test(f.path)) {
+        el = document.createElement("audio");
+        el.controls = true; el.src = url; resumeFor(el, id + f.path);
+      } else if (/\.(mp4|webm|mov|m4v)$/i.test(f.path)) {
+        el = document.createElement("video");
+        el.controls = true; el.src = url; resumeFor(el, id + f.path);
       } else {
-        const fr = document.createElement("iframe");
-        fr.src = su.signedUrl; fr.title = f.name || data.title; fr.style.height = "80vh"; fr.style.aspectRatio = "auto";
-        wrap.append(fr);
+        el = document.createElement("iframe");
+        el.src = url; el.title = f.name || data.title; el.style.height = "80vh"; el.style.aspectRatio = "auto";
       }
-      const a = h("a", "btn", "פתיחה בחלון חדש");
-      a.href = su.signedUrl; a.target = "_blank"; a.rel = "noopener";
-      wrap.append(a);
+      wrap.append(el);
+      const bar = h("div", "tools"), a = h("a", "btn", "פתיחה בחלון חדש");
+      a.href = url; a.target = "_blank"; a.rel = "noopener";
+      bar.append(a);
+      if (canDl) bar.append(dlButton(f));
+      wrap.append(bar);
       box.append(wrap);
     }
     (data.body || "").split(/\n{2,}/).filter(Boolean).forEach((p) => box.append(h("p", "body", p)));
@@ -1505,6 +1562,7 @@ applyTheme(savedTheme);
     if (data.content_date) $("iDate").onchange();
     $("iTitle").value = data.title;
     $("iAud").value = data.audience || "both";
+    $("iDl").checked = data.allow_download !== false;
     $("iAuthor").value = data.author || "";
     $("iSummary").value = data.summary || "";
     $("iMedia").value = data.media_url || "";
@@ -1578,6 +1636,7 @@ applyTheme(savedTheme);
     const row = {
       kind, file_path: null, files: [...editFiles, ...added],
       audience: $("iAud").value,
+      allow_download: $("iDl").checked,
       status: mode === "draft" ? "draft" : "published",
       publish_at: mode === "sched" ? new Date($("iWhen").value).toISOString() : null,
       title: $("iTitle").value.trim(),
@@ -1589,7 +1648,9 @@ applyTheme(savedTheme);
       rebbe_id: $("iRebbe").value || null,
       content_date: $("iDate").value || null
     };
-    const { error } = editId ? await db.from("items").update(row).eq("id", editId) : await db.from("items").insert(row);
+    const write = (r) => (editId ? db.from("items").update(r).eq("id", editId) : db.from("items").insert(r));
+    let { error } = await write(row);
+    if (error && /allow_download/.test(error.message)) { delete row.allow_download; ({ error } = await write(row)); }
     btn.disabled = false;
     if (error) { say($("itemMsg"), "השמירה נכשלה. בדקי שהכותרת מלאה ושיש לך הרשאת ניהול.", "error"); return; }
     const wasEdit = !!editId;

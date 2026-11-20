@@ -183,6 +183,12 @@
   .sample .sbtn { background:linear-gradient(180deg,var(--b1),var(--b2)); color:#fff; border:0; border-radius:10px; padding:6px 16px; font:inherit; }
   .sample .sbadge { background:var(--accent); color:#fff; border-radius:999px; padding:0 8px; font-size:.85rem; margin-inline-start:6px; }
   .sample.dk .sbadge { color:#1b2336; }
+  @media (max-width:720px) {
+    nav { flex-wrap:nowrap; }
+    nav button { min-width:0; padding:4px 0; }
+    nav .lb { font-size:.68rem; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    nav .ic { width:21px; height:21px; }
+  }
   [hidden] { display:none !important; }
 </style>
 <script>
@@ -282,6 +288,7 @@ applyTheme(savedTheme);
   <nav id="nav" hidden>
     <button data-view="homeView" id="navHome"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg><span class="lb">בית</span></button>
     <button data-view="libraryView" id="navLib"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6c-2-1.5-5-2-8-1.5v13c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5v-13c-3-.5-6 0-8 1.5z"/><path d="M12 6v13"/></svg><span class="lb">ספרייה</span></button>
+    <button data-view="musicView" id="navMusic"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></svg><span class="lb">מוזיקה</span></button>
     <button data-view="notesView" id="navNotes"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h10l4 4v14H5z"/><path d="M15 3v4h4"/><path d="M8 12h8M8 16h5"/></svg><span class="lb">הערות</span></button>
     <button data-view="messagesView" id="navMsg"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H10l-4 4v-4H4z"/></svg><span class="lb">הודעות</span></button>
     <button data-view="accountView" id="navAcc"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg><span class="lb">אני</span></button>
@@ -358,7 +365,7 @@ applyTheme(savedTheme);
   </section>
 
   <section id="libraryView" hidden>
-    <h2>ספרייה</h2>
+    <h2 id="libTitle">ספרייה</h2>
     <form id="searchForm" class="inline">
       <input id="q" placeholder="חיפוש בכותרות, מחברים, תקצירים וטקסט" aria-label="חיפוש">
       <button class="small" type="submit">חיפוש</button>
@@ -378,6 +385,7 @@ applyTheme(savedTheme);
   </section>
 
   <section id="accountView" hidden>
+    <div id="ctNotice" class="note" hidden></div>
     <div class="card">
     <h2 id="hello">האיזור האישי שלי</h2>
     <p id="accountEmail" class="email"></p>
@@ -415,7 +423,7 @@ applyTheme(savedTheme);
     <div class="card"><div id="sharedToMe"></div></div>
 
     <h2 class="sec">פינת הערות והארות למנהלי האתר</h2>
-    <div class="card">
+    <div class="card" id="ctSection">
       <p class="meta">רעיון לשדרוג, דיווח על תקלה, הערה או שאלה: כאן אפשר לכתוב למנהלי האתר. הם יקראו, ואם צריך יענו כאן.</p>
       <form id="contactForm">
         <label for="ctType">סוג</label>
@@ -425,7 +433,7 @@ applyTheme(savedTheme);
         <button class="small" type="submit" style="margin-top:8px">שליחה למנהלי האתר</button>
       </form>
       <p id="ctMsg" class="msg" role="status"></p>
-      <details>
+      <details id="ctDetails">
         <summary>ההודעות ששלחתי</summary>
         <div id="ctList"></div>
       </details>
@@ -492,6 +500,7 @@ applyTheme(savedTheme);
     <div class="atabs" id="atabs" role="tablist">
       <button data-tab="aOverview" aria-selected="true">סקירה</button>
       <button data-tab="aContent" aria-selected="false">תכנים</button>
+      <button data-tab="aMusic" aria-selected="false">מוזיקה</button>
       <button data-tab="aCats" aria-selected="false">קטגוריות ורבנים</button>
       <button data-tab="aUsers" aria-selected="false">משתמשים<span class="badge" id="bUsers" hidden></span></button>
       <button data-tab="aNotes" aria-selected="false">הערות משותפות<span class="badge" id="bNotes" hidden></span></button>
@@ -505,11 +514,11 @@ applyTheme(savedTheme);
     <div class="card apanel" id="aOverview"></div>
 
     <div class="card apanel" id="aContent" hidden>
-      <h2>הוספה ועריכה של תוכן</h2>
+      <h2 id="contentTitle">הוספה ועריכה של תוכן</h2>
       <form id="itemForm">
       <label for="iCat">קטגוריה</label>
       <select id="iCat"></select>
-      <label for="iRebbe">רבי</label>
+      <label for="iRebbe" id="iRebbeLbl">רבי</label>
       <select id="iRebbe"></select>
       <label for="hY">תאריך התוכן (עברי)</label>
       <div class="inline">
@@ -555,13 +564,18 @@ applyTheme(savedTheme);
       <h2 class="sec">תכנים קיימים</h2>
       <input id="adminFilter" placeholder="סינון לפי כותרת או קטגוריה" aria-label="סינון תכנים">
       <div id="adminList"></div>
+      <p><button class="small" id="goCats" type="button">ניהול קטגוריות ואמנים</button></p>
     </div>
 
     <div class="card apanel" id="aCats" hidden>
-      <h2>קטגוריות</h2>
+      <div class="chips areachips" id="areaChips">
+        <button data-a="learning" aria-pressed="true">חומר לימוד</button>
+        <button data-a="music" aria-pressed="false">מוזיקה</button>
+      </div>
+      <h2 id="catsH">קטגוריות</h2>
       <form id="catForm" class="inline"><input id="catName" placeholder="קטגוריה חדשה" aria-label="שם קטגוריה"><button class="small" type="submit">הוספה</button></form>
       <div id="catManage"></div>
-      <h2 class="sec">רבנים</h2>
+      <h2 class="sec" id="rebbesH">רבנים</h2>
       <form id="rebbeForm" class="inline"><input id="rebbeName" placeholder="שם חדש" aria-label="שם רבי"><button class="small" type="submit">הוספה</button></form>
       <div id="rebbeManage"></div>
     </div>
@@ -641,7 +655,7 @@ applyTheme(savedTheme);
     </div>
   </section>
 </main>
-<footer id="ver" style="text-align:center;margin:30px 0 10px;font-size:.8rem;color:var(--muted)">גרסת האתר: 16.11.2026 19:21</footer>
+<footer id="ver" style="text-align:center;margin:30px 0 10px;font-size:.8rem;color:var(--muted)">גרסת האתר: 19.11.2026 19:43</footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
@@ -650,7 +664,7 @@ applyTheme(savedTheme);
   const VIEWS = ["homeView","pickView","setSectionView","authView","resetView","notesView","messagesView","threadView","libraryView","itemView","accountView","adminView","sharedView"];
   const KINDS = { article: "מאמר", audio: "שיעור שמע", video: "שיעור וידאו" };
   let me = null, isAdmin = false, filter = "all", mode = "login", favs = new Set();
-  let pendingUser = null, mySection = null, lastSig = "", rec = null, recChunks = [], recTimer = null, recStart = 0, learned = new Set(), prevVisit = 0, thread = null, pollT = null, unreadT = null, iBlocked = false, recovering = false, flashMsg = "", allUsers = [], all = [], path = [], showAll = false, cal = "heb", cats = {}, rebbeName = {}, catList = [], rebbeList = [];
+  let allItems = [], libArea = "learning", adminArea = "learning", allCats = [], allRebbes = [], pendingUser = null, mySection = null, lastSig = "", rec = null, recChunks = [], recTimer = null, recStart = 0, learned = new Set(), prevVisit = 0, thread = null, pollT = null, unreadT = null, iBlocked = false, recovering = false, flashMsg = "", allUsers = [], all = [], path = [], showAll = false, cal = "heb", cats = {}, rebbeName = {}, catList = [], rebbeList = [];
 
   function h(tag, cls, text) {
     const e = document.createElement(tag);
@@ -714,7 +728,8 @@ applyTheme(savedTheme);
     if (!["authView", "resetView", "pickView", "setSectionView"].includes(v)) saveState({ view: v, scroll: 0 });
     if (v !== "threadView") { clearInterval(pollT); thread = null; cancelRec(); }
     if (v !== "adminView") applyTheme(savedTheme);
-    const hl = v === "itemView" ? "libraryView" : v === "sharedView" ? "accountView" : v === "threadView" ? "messagesView" : v;
+    const hl0 = v === "itemView" ? "libraryView" : v === "sharedView" ? "accountView" : v === "threadView" ? "messagesView" : v;
+    const hl = hl0 === "libraryView" && libArea === "music" ? "musicView" : hl0;
     document.querySelectorAll("nav button[data-view]").forEach((b) =>
       b.setAttribute("aria-current", String(b.dataset.view === hl)));
   }
@@ -800,14 +815,19 @@ applyTheme(savedTheme);
   }
 
   async function loadMeta() {
-    const [c, r] = await Promise.all([
-      db.from("categories").select("id,name").order("created_at"),
-      db.from("rebbes").select("id,name").order("ord").order("name")
+    let [c, r] = await Promise.all([
+      db.from("categories").select("id,name,area").order("created_at"),
+      db.from("rebbes").select("id,name,area").order("ord").order("name")
     ]);
-    catList = c.data || [];
-    rebbeList = r.data || [];
-    cats = Object.fromEntries(catList.map((x) => [x.id, x.name]));
-    rebbeName = Object.fromEntries(rebbeList.map((x) => [x.id, x.name]));
+    if (c.error) c = await db.from("categories").select("id,name").order("created_at");
+    if (r.error) r = await db.from("rebbes").select("id,name").order("ord").order("name");
+    allCats = c.data || [];
+    allRebbes = r.data || [];
+    const inArea = (x) => (x.area || "learning") === libArea;
+    catList = allCats.filter(inArea);
+    rebbeList = allRebbes.filter(inArea);
+    cats = Object.fromEntries(allCats.map((x) => [x.id, x.name]));
+    rebbeName = Object.fromEntries(allRebbes.map((x) => [x.id, x.name]));
   }
 
   function dparts(it) {
@@ -838,7 +858,7 @@ applyTheme(savedTheme);
       items = items.filter((it) => STEPS[i].key(it) === k);
       crumb(STEPS[i].name(k), () => { path = path.slice(0, i + 1); showAll = false; renderBrowse(); });
     });
-    $("progress").textContent = items.length ? "נלמדו " + items.filter((it) => learned.has(it.id)).length + " מתוך " + items.length + " תכנים" : "";
+    $("progress").textContent = libArea === "music" ? "" : items.length ? "נלמדו " + items.filter((it) => learned.has(it.id)).length + " מתוך " + items.length + " תכנים" : "";
     if (!items.length) { box.append(h("p", "muted", isAdmin ? "עדיין אין תכנים. אפשר להוסיף בעמוד הניהול." : "עדיין אין תכנים כאן.")); return; }
     if (path.length >= STEPS.length || showAll) { items.forEach((it) => box.append(itemCard(it))); return; }
     const step = STEPS[path.length], groups = new Map();
@@ -870,12 +890,15 @@ applyTheme(savedTheme);
   async function loadLibrary() {
     $("itemsList").replaceChildren(h("p", "muted", "טוענים…"));
     await loadMeta();
-    let { data, error } = await db.from("items").select("id,kind,title,author,summary,created_at,category_id,rebbe_id,content_date,status,publish_at,audience").order("created_at", { ascending: false });
+    let { data, error } = await db.from("items").select("id,kind,title,author,summary,created_at,category_id,rebbe_id,content_date,status,publish_at,audience,area").order("created_at", { ascending: false });
     if (error) {
       ({ data, error } = await db.from("items").select("id,kind,title,author,summary,created_at,category_id,rebbe_id,content_date").order("created_at", { ascending: false }));
     }
     if (error) { $("itemsList").replaceChildren(h("p", "msg error", "לא הצלחנו לטעון את התכנים: " + error.message)); return; }
-    all = data;
+    allItems = data;
+    all = data.filter((it) => (it.area || "learning") === libArea);
+    $("libTitle").textContent = libArea === "music" ? "מוזיקה" : "ספרייה";
+    $("q").placeholder = libArea === "music" ? "חיפוש במוזיקה: כותרת, אמן ותקציר" : "חיפוש בכותרות, מחברים, תקצירים וטקסט";
     const nn = all.filter(isNew).length;
     $("newBtn").textContent = nn ? "התכנים החדשים (" + nn + ")" : "התכנים החדשים ביותר";
     $("q").value = "";
@@ -911,8 +934,9 @@ applyTheme(savedTheme);
       .order("created_at", { ascending: false }).limit(50);
     box.replaceChildren();
     if (error) { box.append(h("p", "msg error", "החיפוש נכשל.")); return; }
-    if (!data.length) { box.append(h("p", "muted", "לא נמצאו תוצאות.")); return; }
-    data.forEach((it) => box.append(itemCard(it)));
+    const inArea = new Set(all.map((x) => x.id)), res = data.filter((it) => inArea.has(it.id));
+    if (!res.length) { box.append(h("p", "muted", "לא נמצאו תוצאות.")); return; }
+    res.forEach((it) => box.append(itemCard(it)));
   });
 
   function resumeFor(el, key) {
@@ -1014,7 +1038,7 @@ applyTheme(savedTheme);
     const pr = h("button", "small", "הדפסה");
     pr.type = "button";
     pr.onclick = () => window.print();
-    tools.append(favButton(id), learnedButton(id), fontBtn("א−", -0.1), fontBtn("א+", 0.1), pr);
+    tools.append(favButton(id), ...(data.area === "music" ? [] : [learnedButton(id)]), fontBtn("א−", -0.1), fontBtn("א+", 0.1), pr);
     box.append(tools);
     db.from("history").upsert({ user_id: me.id, item_id: id, opened_at: new Date().toISOString() }, { onConflict: "user_id,item_id" }).then(() => {});
     const fl = [...(data.file_path ? [{ path: data.file_path, name: "" }] : []), ...(data.files || [])];
@@ -1286,8 +1310,12 @@ applyTheme(savedTheme);
 
   function showTab(t) {
     document.querySelectorAll("#atabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === t)));
-    document.querySelectorAll(".apanel").forEach((x) => { x.hidden = x.id !== t; });
+    if (t === "aContent") adminArea = "learning";
+    if (t === "aMusic") adminArea = "music";
+    const panel = t === "aMusic" ? "aContent" : t;
+    document.querySelectorAll(".apanel").forEach((x) => { x.hidden = x.id !== panel; });
     saveState({ atab: t });
+    if (t === "aContent" || t === "aMusic" || t === "aCats") loadAdmin();
     if (t !== "aTheme") applyTheme(savedTheme);
     say($("itemMsg"), "");
     if (t === "aOverview") loadOverview();
@@ -1474,8 +1502,12 @@ applyTheme(savedTheme);
       const send = mk("שליחת תשובה", "small", async () => {
         const text = r.value.trim();
         if (!text) return;
-        const { error: err } = await db.from("contact_messages").update({ admin_reply: text, status: "answered", replied_at: new Date().toISOString() }).eq("id", c.id);
-        if (err) { say($("itemMsg"), "השליחה נכשלה: " + err.message, "error"); return; }
+        const { data: upd, error: err } = await db.from("contact_messages").update({ admin_reply: text, status: "answered", replied_at: new Date().toISOString() }).eq("id", c.id).select("id");
+        if (err || !upd || !upd.length) {
+          say($("itemMsg"), "התשובה לא נשמרה" + (err ? ": " + err.message : ". כנראה חסרה הרשאת עדכון בטבלה. יש להריץ שוב את קוד ה-SQL של ההודעות למנהלים."), "error");
+          return;
+        }
+        say($("itemMsg"), "התשובה נשמרה, והמשתמש יראה אותה באיזור האישי שלו.", "ok");
         loadContact();
       });
       const close = mk("סימון כטופל", "small", async () => { await db.from("contact_messages").update({ status: "closed" }).eq("id", c.id); loadContact(); });
@@ -1489,14 +1521,28 @@ applyTheme(savedTheme);
     });
   }
 
+  const AREAS = { learning: { name: "חומר לימוד", one: "רבי", many: "רבנים" }, music: { name: "מוזיקה", one: "אמן", many: "אמנים" } };
+  function applyAdminArea() {
+    const a = AREAS[adminArea];
+    $("contentTitle").textContent = adminArea === "music" ? "הוספה ועריכה של מוזיקה וסרטונים" : "הוספה ועריכה של תוכן";
+    $("iRebbeLbl").textContent = a.one;
+    $("catsH").textContent = "קטגוריות: " + a.name;
+    $("rebbesH").textContent = a.many + ": " + a.name;
+    document.querySelectorAll("#areaChips button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.a === adminArea)));
+  }
+  document.querySelectorAll("#areaChips button").forEach((b) => { b.onclick = () => { adminArea = b.dataset.a; loadAdmin(); }; });
+  $("goCats").onclick = () => showTab("aCats");
+
   async function loadAdmin() {
     if ($("hY").options.length < 2) initHeb();
     await loadMeta();
     const opt = (sel, list, first) => { sel.replaceChildren(new Option(first, "")); list.forEach((x) => sel.append(new Option(x.name, x.id))); };
-    opt($("iCat"), catList, "ללא קטגוריה");
-    opt($("iRebbe"), rebbeList, "ללא רבי");
-    manageBox($("catManage"), "categories", catList);
-    manageBox($("rebbeManage"), "rebbes", rebbeList);
+    applyAdminArea();
+    const inA = (x) => (x.area || "learning") === adminArea, ac = allCats.filter(inA), ar = allRebbes.filter(inA);
+    opt($("iCat"), ac, "ללא קטגוריה");
+    opt($("iRebbe"), ar, "ללא " + AREAS[adminArea].one);
+    manageBox($("catManage"), "categories", ac);
+    manageBox($("rebbeManage"), "rebbes", ar);
     loadAdminList();
   }
 
@@ -1522,7 +1568,9 @@ applyTheme(savedTheme);
       e.preventDefault();
       const name = $(i).value.trim();
       if (!name) return;
-      const { error } = await db.from(t).insert({ name });
+      let { error } = await db.from(t).insert({ name, area: adminArea });
+      if (error && /\barea\b/.test(error.message) && adminArea === "learning") ({ error } = await db.from(t).insert({ name }));
+      if (error && /\barea\b/.test(error.message)) { say($("itemMsg"), "כדי להוסיף קטגוריות למוזיקה צריך להריץ את קוד ה-SQL של המוזיקה ב-Supabase.", "error"); return; }
       if (error) { say($("itemMsg"), "ההוספה נכשלה (אולי השם כבר קיים).", "error"); return; }
       $(i).value = "";
       loadAdmin();
@@ -1589,9 +1637,11 @@ applyTheme(savedTheme);
 
   async function loadAdminList() {
     const box = $("adminList");
-    const { data, error } = await db.from("items").select("id,title,file_path,files,status,publish_at,audience,category_id,created_at").order("created_at", { ascending: false });
+    let { data, error } = await db.from("items").select("id,title,file_path,files,status,publish_at,audience,area,category_id,created_at").order("created_at", { ascending: false });
+    if (error) ({ data, error } = await db.from("items").select("id,title,file_path,files,status,publish_at,audience,category_id,created_at").order("created_at", { ascending: false }));
     box.replaceChildren();
     if (error) { box.append(h("p", "msg error", "לא הצלחנו לטעון את הרשימה.")); return; }
+    data = data.filter((it) => (it.area || "learning") === adminArea);
     if (!data.length) { box.append(h("p", "muted", "עדיין לא נוספו תכנים.")); return; }
     data.forEach((it) => {
       const row = h("div", "row");
@@ -1637,6 +1687,7 @@ applyTheme(savedTheme);
       kind, file_path: null, files: [...editFiles, ...added],
       audience: $("iAud").value,
       allow_download: $("iDl").checked,
+      area: adminArea,
       status: mode === "draft" ? "draft" : "published",
       publish_at: mode === "sched" ? new Date($("iWhen").value).toISOString() : null,
       title: $("iTitle").value.trim(),
@@ -1650,7 +1701,8 @@ applyTheme(savedTheme);
     };
     const write = (r) => (editId ? db.from("items").update(r).eq("id", editId) : db.from("items").insert(r));
     let { error } = await write(row);
-    if (error && /allow_download/.test(error.message)) { delete row.allow_download; ({ error } = await write(row)); }
+    if (error && /\barea\b/.test(error.message) && adminArea === "music") { btn.disabled = false; say($("itemMsg"), "כדי להוסיף מוזיקה צריך להריץ את קוד ה-SQL של המוזיקה ב-Supabase.", "error"); return; }
+    for (const k of ["allow_download", "area"]) if (error && new RegExp("\\b" + k + "\\b").test(error.message)) { delete row[k]; ({ error } = await write(row)); }
     btn.disabled = false;
     if (error) { say($("itemMsg"), "השמירה נכשלה. בדקי שהכותרת מלאה ושיש לך הרשאת ניהול.", "error"); return; }
     const wasEdit = !!editId;
@@ -2119,6 +2171,10 @@ applyTheme(savedTheme);
     if (!me) return;
     const { count } = await db.from("messages").select("id", { count: "exact", head: true }).eq("recipient_id", me.id).is("read_at", null);
     $("navMsg").querySelector(".lb").textContent = "הודעות" + (count ? " (" + count + ")" : "");
+    const seenAt0 = localStorage.getItem("ct_seen_" + me.id) || "1970-01-01T00:00:00Z";
+    const rr = await db.from("contact_messages").select("id", { count: "exact", head: true }).eq("user_id", me.id).gt("replied_at", seenAt0);
+    const nr = rr.error ? 0 : rr.count || 0;
+    $("navAcc").querySelector(".lb").textContent = "אני" + (nr ? " (" + nr + ")" : "");
   }
 
   async function loadInbox() {
@@ -2368,9 +2424,22 @@ applyTheme(savedTheme);
     box.replaceChildren();
     if (error) { box.append(h("p", "msg error", "לא הצלחנו לטעון הודעות: " + error.message)); return; }
     if (!data.length) { box.append(h("p", "muted", "עדיין לא שלחת הודעות.")); return; }
+    const seen = new Date(localStorage.getItem("ct_seen_" + me.id) || 0);
+    const isNewReply = (c) => c.replied_at && new Date(c.replied_at) > seen;
+    const unseen = data.filter(isNewReply).length, nt = $("ctNotice");
+    nt.replaceChildren();
+    nt.hidden = !unseen;
+    if (unseen) {
+      nt.append(h("div", null, unseen === 1 ? "יש לך תשובה חדשה ממנהלי האתר." : "יש לך " + unseen + " תשובות חדשות ממנהלי האתר."));
+      const go = h("button", "small", "לצפייה");
+      go.type = "button";
+      go.onclick = () => { $("ctDetails").open = true; $("ctSection").scrollIntoView({ behavior: "smooth" }); };
+      nt.append(go);
+    }
     data.forEach((c) => {
       const el = h("div", "note"), t = h("div", null, c.topic);
       t.append(h("span", "badge" + (c.status === "answered" ? " ok" : ""), CT_STATUS[c.status] || c.status));
+      if (isNewReply(c)) t.append(h("span", "badge", "תשובה חדשה"));
       el.append(t, h("p", null, c.body), h("div", "meta", dual(c.created_at)));
       if (c.admin_reply) {
         el.append(h("div", "meta", "תשובת המנהלים" + (c.replied_at ? ", " + dual(c.replied_at) : "") + ":"), h("blockquote", null, c.admin_reply));
@@ -2378,6 +2447,12 @@ applyTheme(savedTheme);
       box.append(el);
     });
   }
+  $("ctDetails").addEventListener("toggle", () => {
+    if (!$("ctDetails").open || !me) return;
+    localStorage.setItem("ct_seen_" + me.id, new Date().toISOString());
+    $("ctNotice").hidden = true;
+    refreshUnread();
+  });
   $("contactForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const body = $("ctBody").value.trim();
@@ -2396,9 +2471,10 @@ applyTheme(savedTheme);
   async function loadHome() {
     const nm = $("pName").value.trim();
     $("homeHello").textContent = nm ? "שלום, " + nm : "שלום";
-    const done = all.filter((it) => learned.has(it.id)).length;
-    $("homeSub").textContent = all.length ? "נלמדו " + done + " מתוך " + all.length + " תכנים" : "";
-    const nb = $("homeNew"), fresh = all.filter(isNew), list = (fresh.length ? fresh : all).slice(0, 4);
+    const learn = allItems.filter((it) => (it.area || "learning") === "learning");
+    const done = learn.filter((it) => learned.has(it.id)).length;
+    $("homeSub").textContent = learn.length ? "נלמדו " + done + " מתוך " + learn.length + " תכנים" : "";
+    const nb = $("homeNew"), fresh = allItems.filter(isNew), list = (fresh.length ? fresh : allItems).slice(0, 4);
     nb.replaceChildren();
     if (!list.length) nb.append(h("p", "muted", "עדיין אין תכנים."));
     list.forEach((it) => nb.append(itemCard(it)));
@@ -2410,9 +2486,10 @@ applyTheme(savedTheme);
     fillList($("homeRecent"), rec, "עדיין לא נפתחו תכנים. תכנים שתפתחו יופיעו כאן.");
     fillList($("homeFavs"), fav, "אין עדיין מועדפים. בעמוד של כל תוכן יש כפתור לשמירה.");
   }
-  $("homeSearch").addEventListener("submit", (e) => {
+  $("homeSearch").addEventListener("submit", async (e) => {
     e.preventDefault();
     const t = $("homeQ").value;
+    if (libArea !== "learning") { libArea = "learning"; saveState({ libArea }); await loadLibrary(); }
     show("libraryView");
     $("q").value = t;
     $("searchForm").requestSubmit();
@@ -2420,7 +2497,8 @@ applyTheme(savedTheme);
   $("navHome").onclick = () => { show("homeView"); loadHome(); };
 
   /* ---------- ניווט ומצב התחברות ---------- */
-  $("navLib").onclick = () => { path = []; showAll = false; show("libraryView"); loadLibrary(); };
+  $("navLib").onclick = () => { libArea = "learning"; saveState({ libArea }); path = []; showAll = false; show("libraryView"); loadLibrary(); };
+  $("navMusic").onclick = () => { libArea = "music"; saveState({ libArea }); path = []; showAll = false; show("libraryView"); loadLibrary(); };
   $("navAcc").onclick = () => { say($("profileMsg"), ""); show("accountView"); loadAccountLists(); loadSharedWith(); loadSharedToMe(); };
   $("navAdmin").onclick = openAdmin;
   $("logoutBtn").onclick = () => db.auth.signOut();
@@ -2459,6 +2537,7 @@ applyTheme(savedTheme);
     clearInterval(unreadT);
     unreadT = setInterval(() => { refreshUnread(); refreshAdminBadges(); }, 60000);
     const st = loadState();
+    if (st.libArea) libArea = st.libArea;
     if (st.cal) { cal = st.cal; $("cal").value = cal; }
     if (Array.isArray(st.path)) { path = st.path; showAll = !!st.showAll; }
     await loadLibrary();

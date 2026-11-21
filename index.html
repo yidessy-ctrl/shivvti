@@ -189,6 +189,10 @@
     nav .lb { font-size:.68rem; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     nav .ic { width:21px; height:21px; }
   }
+  .tbl { width:100%; border-collapse:collapse; }
+  .tbl th, .tbl td { padding:8px 10px; border-bottom:1px solid var(--line); text-align:right; }
+  .tbl th { color:var(--head); font-weight:600; }
+  .tbl td:not(:first-child), .tbl th:not(:first-child) { text-align:center; }
   [hidden] { display:none !important; }
 </style>
 <script>
@@ -302,22 +306,22 @@ applyTheme(savedTheme);
   <section id="pickView" class="card narrow" hidden>
     <img class="hero" src="rebbe.jpg" alt="" onerror="this.remove()">
     <h2>ברוכים הבאים</h2>
-    <p class="muted">לאיזה מדור תרצו להיכנס?</p>
-    <button class="primary" type="button" data-sec="men">מדור הגברים</button>
-    <button class="primary" type="button" data-sec="women">מדור הנשים</button>
+    <p class="muted">לאיזה אגף תרצו להיכנס?</p>
+    <button class="primary" type="button" data-sec="men">אגף הבנים</button>
+    <button class="primary" type="button" data-sec="women">אגף הבנות</button>
   </section>
 
   <section id="setSectionView" class="card narrow" hidden>
-    <h2>בחירת מדור</h2>
-    <p class="muted">כדי להמשיך, יש לבחור את המדור שלך. הבחירה נקבעת פעם אחת, ושינוי שלה אפשרי רק דרך מנהלת האתר.</p>
-    <button class="primary" type="button" data-set="men">מדור הגברים</button>
-    <button class="primary" type="button" data-set="women">מדור הנשים</button>
+    <h2>בחירת אגף</h2>
+    <p class="muted">כדי להמשיך, יש לבחור את האגף שלך. הבחירה נקבעת פעם אחת, ושינוי שלה אפשרי רק דרך מנהלת האתר.</p>
+    <button class="primary" type="button" data-set="men">אגף הבנים</button>
+    <button class="primary" type="button" data-set="women">אגף הבנות</button>
     <p id="secMsg" class="msg" role="status"></p>
   </section>
 
   <section id="authView" class="card narrow" hidden>
     <img class="hero" src="rebbe.jpg" alt="" onerror="this.remove()">
-    <p class="meta"><span id="secLine"></span> <button type="button" id="changeSec" class="back" style="margin:0">החלפת מדור</button></p>
+    <p class="meta"><span id="secLine"></span> <button type="button" id="changeSec" class="back" style="margin:0">החלפת אגף</button></p>
     <div class="tabs" role="tablist">
       <button id="tabLogin" role="tab" aria-selected="true">התחברות</button>
       <button id="tabSignup" role="tab" aria-selected="false">הרשמה</button>
@@ -407,7 +411,7 @@ applyTheme(savedTheme);
     <h2 class="sec">שיתוף עם אחרים</h2>
     <div class="card">
       <p class="muted">רק מה שסימנת לשיתוף (תכנים במועדפים והערות) יהיה גלוי לאחרים.</p>
-      <label class="check"><input type="checkbox" id="pubToggle"> שיתוף עם כל המשתמשים במדור שלי</label>
+      <label class="check"><input type="checkbox" id="pubToggle"> שיתוף עם כל המשתמשים באגף שלי</label>
       <h3 class="sub">שיתוף עם משתמשים מסוימים</h3>
       <form id="userSearchForm" class="inline">
         <input id="userQ" placeholder="חיפוש לפי שם" aria-label="חיפוש משתמש לפי שם">
@@ -497,8 +501,10 @@ applyTheme(savedTheme);
 
   <section id="adminView" hidden>
     <h2>ניהול</h2>
+    <div id="wingBar"></div>
     <div class="atabs" id="atabs" role="tablist">
-      <button data-tab="aOverview" aria-selected="true">סקירה</button>
+      <button data-tab="aOverview" aria-selected="true">סקירת האגף</button>
+      <button data-tab="aSite" aria-selected="false">סקירה כללית</button>
       <button data-tab="aContent" aria-selected="false">תכנים</button>
       <button data-tab="aMusic" aria-selected="false">מוזיקה</button>
       <button data-tab="aCats" aria-selected="false">קטגוריות ורבנים</button>
@@ -512,6 +518,7 @@ applyTheme(savedTheme);
     <p id="itemMsg" class="msg" role="status"></p>
 
     <div class="card apanel" id="aOverview"></div>
+    <div class="card apanel" id="aSite" hidden></div>
 
     <div class="card apanel" id="aContent" hidden>
       <h2 id="contentTitle">הוספה ועריכה של תוכן</h2>
@@ -544,9 +551,9 @@ applyTheme(savedTheme);
       <label class="check"><input type="checkbox" id="iDl" checked> לאפשר למשתמשים להוריד את הקבצים והקלטות</label>
       <label for="iAud">קהל</label>
       <select id="iAud">
-        <option value="both">שני המדורים</option>
-        <option value="men">מדור הגברים בלבד</option>
-        <option value="women">מדור הנשים בלבד</option>
+        <option value="both">שני האגפים</option>
+        <option value="men">אגף הבנים בלבד</option>
+        <option value="women">אגף הבנות בלבד</option>
       </select>
       <label for="iStatus">מצב פרסום</label>
       <select id="iStatus">
@@ -582,6 +589,10 @@ applyTheme(savedTheme);
 
     <div class="card apanel" id="aUsers" hidden>
       <h2>משתמשים</h2>
+      <div class="chips" id="uChips">
+        <button data-f="mine" aria-pressed="true">האגף שלי</button>
+        <button data-f="none" aria-pressed="false">ללא אגף</button>
+      </div>
       <input id="userFilter" placeholder="סינון לפי שם או אימייל" aria-label="סינון משתמשים">
       <div id="userList"></div>
     </div>
@@ -655,7 +666,7 @@ applyTheme(savedTheme);
     </div>
   </section>
 </main>
-<footer id="ver" style="text-align:center;margin:30px 0 10px;font-size:.8rem;color:var(--muted)">גרסת האתר: 19.11.2026 19:43</footer>
+<footer id="ver" style="text-align:center;margin:30px 0 10px;font-size:.8rem;color:var(--muted)">גרסת האתר: 21.11.2026 15:44</footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
@@ -664,7 +675,7 @@ applyTheme(savedTheme);
   const VIEWS = ["homeView","pickView","setSectionView","authView","resetView","notesView","messagesView","threadView","libraryView","itemView","accountView","adminView","sharedView"];
   const KINDS = { article: "מאמר", audio: "שיעור שמע", video: "שיעור וידאו" };
   let me = null, isAdmin = false, filter = "all", mode = "login", favs = new Set();
-  let allItems = [], libArea = "learning", adminArea = "learning", allCats = [], allRebbes = [], pendingUser = null, mySection = null, lastSig = "", rec = null, recChunks = [], recTimer = null, recStart = 0, learned = new Set(), prevVisit = 0, thread = null, pollT = null, unreadT = null, iBlocked = false, recovering = false, flashMsg = "", allUsers = [], all = [], path = [], showAll = false, cal = "heb", cats = {}, rebbeName = {}, catList = [], rebbeList = [];
+  let curTab = "aOverview", allItems = [], libArea = "learning", adminArea = "learning", allCats = [], allRebbes = [], pendingUser = null, mySection = null, lastSig = "", rec = null, recChunks = [], recTimer = null, recStart = 0, learned = new Set(), prevVisit = 0, thread = null, pollT = null, unreadT = null, iBlocked = false, recovering = false, flashMsg = "", allUsers = [], all = [], path = [], showAll = false, cal = "heb", cats = {}, rebbeName = {}, catList = [], rebbeList = [];
 
   function h(tag, cls, text) {
     const e = document.createElement(tag);
@@ -678,7 +689,7 @@ applyTheme(savedTheme);
     localStorage.setItem("theme_cache", JSON.stringify(savedTheme));
     applyTheme(savedTheme);
   });
-  const SECNAME = { men: "מדור הגברים", women: "מדור הנשים" };
+  const SECNAME = { men: "אגף הבנים", women: "אגף הבנות" };
   const getChoice = () => { const c = localStorage.getItem("section_choice"); return SECNAME[c] ? c : null; };
   function showEntry() {
     if (getChoice()) { $("secLine").textContent = SECNAME[getChoice()]; show("authView"); } else show("pickView");
@@ -895,8 +906,8 @@ applyTheme(savedTheme);
       ({ data, error } = await db.from("items").select("id,kind,title,author,summary,created_at,category_id,rebbe_id,content_date").order("created_at", { ascending: false }));
     }
     if (error) { $("itemsList").replaceChildren(h("p", "msg error", "לא הצלחנו לטעון את התכנים: " + error.message)); return; }
-    allItems = data;
-    all = data.filter((it) => (it.area || "learning") === libArea);
+    allItems = data.filter(audOK);
+    all = allItems.filter((it) => (it.area || "learning") === libArea);
     $("libTitle").textContent = libArea === "music" ? "מוזיקה" : "ספרייה";
     $("q").placeholder = libArea === "music" ? "חיפוש במוזיקה: כותרת, אמן ותקציר" : "חיפוש בכותרות, מחברים, תקצירים וטקסט";
     const nn = all.filter(isNew).length;
@@ -1137,15 +1148,16 @@ applyTheme(savedTheme);
   function renderUsers() {
     const box = $("userList"), f = $("userFilter").value.trim().toLowerCase();
     box.replaceChildren();
-    const list = allUsers.filter((u) => !f || (u.email || "").toLowerCase().includes(f) || (u.full_name || "").toLowerCase().includes(f));
-    box.append(h("p", "meta", list.length + " משתמשים"));
+    const inScope = (u) => (uFilter === "mine" ? u.section === mySection : !u.section);
+    const list = allUsers.filter((u) => inScope(u) && (!f || (u.email || "").toLowerCase().includes(f) || (u.full_name || "").toLowerCase().includes(f)));
+    box.append(h("p", "meta", list.length + " משתמשים" + (uFilter === "mine" ? " ב" + SECNAME[mySection] : " ללא אגף")));
     list.forEach((u) => {
       const row = h("div", "row"), info = h("div");
       info.append(h("div", null, (u.full_name || "ללא שם") + (u.is_admin ? " (מנהל)" : "") + (u.blocked ? " (חסום)" : "")));
       const em = h("div", "meta", u.email);
       em.dir = "ltr";
       em.style.textAlign = "right";
-      info.append(em, h("div", "meta", (SECNAME[u.section] || "ללא מדור") + ", הצטרף " + dual(u.created_at) + (u.last_sign_in_at ? ", כניסה אחרונה " + dual(u.last_sign_in_at) : "")));
+      info.append(em, h("div", "meta", (SECNAME[u.section] || "ללא אגף") + ", הצטרף " + dual(u.created_at) + (u.last_sign_in_at ? ", כניסה אחרונה " + dual(u.last_sign_in_at) : "")));
       row.append(info);
       if (!u.is_admin && u.id !== me.id) {
         const b = h("button", u.blocked ? "small" : "del", u.blocked ? "ביטול חסימה" : "חסימה");
@@ -1155,31 +1167,45 @@ applyTheme(savedTheme);
           const { error } = await db.rpc("admin_set_blocked", { uid: u.id, b: !u.blocked });
           if (error) say($("itemMsg"), "הפעולה נכשלה: " + error.message, "error"); else loadUsers();
         };
-        const mv = h("button", "small", u.section === "women" ? "העברה למדור הגברים" : "העברה למדור הנשים");
-        mv.type = "button";
-        mv.style.marginInlineStart = "8px";
-        mv.onclick = async () => {
-          if (!confirm("להעביר את " + (u.full_name || u.email) + " ל" + (u.section === "women" ? SECNAME.men : SECNAME.women) + "?")) return;
-          const { error } = await db.rpc("admin_set_section", { uid: u.id, s: u.section === "women" ? "men" : "women" });
-          if (error) say($("itemMsg"), "הפעולה נכשלה: " + error.message, "error"); else loadUsers();
-        };
-        row.append(b, mv);
+        const targets = u.section === "women" ? ["men"] : u.section === "men" ? ["women"] : ["men", "women"];
+        const btns = targets.map((k) => {
+          const mv = h("button", "small", "העברה ל" + SECNAME[k]);
+          mv.type = "button";
+          mv.style.marginInlineStart = "8px";
+          mv.onclick = async () => {
+            if (!confirm("להעביר את " + (u.full_name || u.email) + " ל" + SECNAME[k] + "?")) return;
+            const { error } = await db.rpc("admin_set_section", { uid: u.id, s: k });
+            if (error) say($("itemMsg"), "הפעולה נכשלה: " + error.message, "error"); else loadUsers();
+          };
+          return mv;
+        });
+        row.append(b, ...btns);
       }
       box.append(row);
     });
   }
   $("userFilter").oninput = renderUsers;
+  let uFilter = "mine";
+  document.querySelectorAll("#uChips button").forEach((b) => {
+    b.onclick = () => {
+      uFilter = b.dataset.f;
+      document.querySelectorAll("#uChips button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+      renderUsers();
+    };
+  });
 
   async function loadSharedNotes() {
     const box = $("modNotes");
     box.replaceChildren(h("p", "muted", "טוענים…"));
-    const { data, error } = await db.from("notes").select("id,user_id,quote,body,image_path,created_at,items(title)").eq("shared", true).order("created_at", { ascending: false }).limit(30);
+    const { data, error } = await db.from("notes").select("id,user_id,quote,body,image_path,created_at,items(title)").eq("shared", true).order("created_at", { ascending: false }).limit(150);
     if (error) { box.replaceChildren(h("p", "msg error", "לא הצלחנו לטעון הערות: " + error.message)); return; }
     box.replaceChildren();
     if (!data.length) { box.append(h("p", "muted", "אין הערות משותפות.")); return; }
-    const { data: ps } = await db.from("profiles").select("id,full_name").in("id", [...new Set(data.map((n) => n.user_id))]);
-    const nm = Object.fromEntries((ps || []).map((x) => [x.id, x.full_name || "משתמש"]));
-    data.forEach((n) => {
+    const { data: ps } = await db.from("profiles").select("id,full_name,section").in("id", [...new Set(data.map((n) => n.user_id))]);
+    const nm = Object.fromEntries((ps || []).map((x) => [x.id, x.full_name || "משתמש"])), sc = Object.fromEntries((ps || []).map((x) => [x.id, x.section]));
+    const wingNotes = data.filter((n) => sc[n.user_id] === mySection).slice(0, 30);
+    if (!wingNotes.length) { box.append(h("p", "muted", "אין הערות משותפות באגף הזה.")); return; }
+    wingNotes.forEach((n) => {
       const row = h("div", "row"), info = h("div");
       info.append(h("div", null, n.body.slice(0, 140)));
       info.append(h("div", "meta", nm[n.user_id] + " על " + ((n.items && n.items.title) || "תוכן שנמחק") + ", " + dual(n.created_at)));
@@ -1206,9 +1232,11 @@ applyTheme(savedTheme);
     box.replaceChildren();
     if (!data.length) { box.append(h("p", "muted", "אין דיווחים פתוחים.")); return; }
     const ids = [...new Set(data.flatMap((r) => [r.reporter_id, r.reported_id]))];
-    const { data: ps } = await db.from("profiles").select("id,full_name").in("id", ids);
-    const nm = Object.fromEntries((ps || []).map((x) => [x.id, x.full_name || "משתמש"]));
-    data.forEach((r) => {
+    const { data: ps } = await db.from("profiles").select("id,full_name,section").in("id", ids);
+    const nm = Object.fromEntries((ps || []).map((x) => [x.id, x.full_name || "משתמש"])), sc = Object.fromEntries((ps || []).map((x) => [x.id, x.section]));
+    const wingReports = data.filter((r) => sc[r.reported_id] === mySection);
+    if (!wingReports.length) { box.append(h("p", "muted", "אין דיווחים פתוחים באגף הזה.")); return; }
+    wingReports.forEach((r) => {
       const row = h("div", "row"), info = h("div");
       info.append(h("div", null, "“" + (r.message_body || "").slice(0, 200) + "”"));
       info.append(h("div", "meta", "נשלח על ידי " + nm[r.reported_id] + ", דווח על ידי " + nm[r.reporter_id] + ", " + dual(r.created_at)));
@@ -1241,47 +1269,102 @@ applyTheme(savedTheme);
   const head = (table) => db.from(table).select("id", { count: "exact", head: true });
   function setBadge(id, n) { const b = $(id); b.textContent = String(n); b.hidden = !n; }
 
-  async function refreshAdminBadges() {
-    if (!isAdmin || !me) return;
-    const [rep, usr, nts, cnt] = await Promise.all([
-      countOf(head("reports").eq("resolved", false)),
-      countOf(head("profiles").gt("created_at", seenAt("users"))),
-      countOf(head("notes").eq("shared", true).neq("user_id", me.id).gt("created_at", seenAt("notes"))),
-      countOf(head("contact_messages").eq("status", "open"))
+  const audOK = (it) => !isAdmin || !mySection || !it.audience || it.audience === "both" || it.audience === mySection;
+  const secOf = (d, uid) => (d.by[uid] && d.by[uid].section) || null;
+
+  async function adminData() {
+    const [pr, nt, rp, ct, it] = await Promise.all([
+      db.from("profiles").select("id,section,is_admin,blocked,created_at"),
+      db.from("notes").select("id,user_id,created_at").eq("shared", true),
+      db.from("reports").select("id,reported_id").eq("resolved", false),
+      db.from("contact_messages").select("id,user_id").eq("status", "open"),
+      db.from("items").select("id,area,audience,status,publish_at")
     ]);
-    setBadge("bReports", rep);
+    let items = it.data;
+    if (it.error) items = (await db.from("items").select("id")).data;
+    const by = {};
+    (pr.data || []).forEach((x) => { by[x.id] = x; });
+    return { profiles: pr.data || [], notes: nt.data || [], reports: rp.data || [], contacts: ct.data || [], items: items || [], by };
+  }
+
+  function wingCounts(d, w) {
+    const week = Date.now() - 7 * 864e5, us = d.profiles.filter((x) => x.section === w && !x.is_admin);
+    return {
+      users: us.length,
+      newWeek: us.filter((x) => new Date(x.created_at).getTime() > week).length,
+      blocked: us.filter((x) => x.blocked).length,
+      notes: d.notes.filter((n) => secOf(d, n.user_id) === w).length,
+      reports: d.reports.filter((r) => secOf(d, r.reported_id) === w).length,
+      contacts: d.contacts.filter((c) => secOf(d, c.user_id) === w).length
+    };
+  }
+
+  async function refreshAdminBadges() {
+    if (!isAdmin || !me || !mySection) return;
+    const d = await adminData(), w = mySection, c = wingCounts(d, w);
+    const uSeen = new Date(seenAt("users")), nSeen = new Date(seenAt("notes"));
+    const usr = d.profiles.filter((x) => x.section === w && !x.is_admin && new Date(x.created_at) > uSeen).length;
+    const nts = d.notes.filter((n) => n.user_id !== me.id && secOf(d, n.user_id) === w && new Date(n.created_at) > nSeen).length;
+    setBadge("bReports", c.reports);
     setBadge("bUsers", usr);
     setBadge("bNotes", nts);
-    setBadge("bContact", cnt);
-    const total = rep + usr + nts + cnt;
+    setBadge("bContact", c.contacts);
+    const total = c.reports + usr + nts + c.contacts;
     $("navAdmin").querySelector(".lb").textContent = "ניהול" + (total ? " (" + total + ")" : "");
   }
 
   async function loadOverview() {
-    const box = $("aOverview");
+    const box = $("aOverview"), w = mySection;
     box.replaceChildren(h("p", "muted", "טוענים…"));
-    const [items, reports, shared, users] = await Promise.all([
-      countOf(head("items")), countOf(head("reports").eq("resolved", false)),
-      countOf(head("notes").eq("shared", true)), db.rpc("admin_list_users")
-    ]);
-    const u = users.data || [], week = Date.now() - 7 * 864e5;
+    if (!w) { box.replaceChildren(h("p", "muted", "יש לבחור אגף כדי לראות את הסקירה.")); return; }
+    const d = await adminData(), c = wingCounts(d, w);
+    const vis = d.items.filter((it) => !it.audience || it.audience === "both" || it.audience === w).length;
     const cards = [
-      ["aUsers", "משתמשים", u.length],
-      ["aUsers", "חדשים בשבוע האחרון", u.filter((x) => new Date(x.created_at).getTime() > week).length],
-      ["aUsers", "חסומים", u.filter((x) => x.blocked).length],
-      ["aContent", "תכנים", items],
-      ["aNotes", "הערות משותפות", shared],
-      ["aReports", "דיווחים פתוחים", reports]
+      ["aUsers", "משתמשים", c.users], ["aUsers", "חדשים בשבוע האחרון", c.newWeek], ["aUsers", "חסומים", c.blocked],
+      ["aContent", "תכנים באגף", vis], ["aNotes", "הערות משותפות", c.notes],
+      ["aReports", "דיווחים פתוחים", c.reports], ["aContact", "הערות והארות חדשות", c.contacts]
     ];
     const grid = h("div", "stats");
     cards.forEach(([tab, label, n]) => {
-      const c = h("button", "stat");
-      c.type = "button";
-      c.append(h("div", "num", String(n)), h("div", "meta", label));
-      c.onclick = () => showTab(tab);
-      grid.append(c);
+      const b = h("button", "stat");
+      b.type = "button";
+      b.append(h("div", "num", String(n)), h("div", "meta", label));
+      b.onclick = () => showTab(tab);
+      grid.append(b);
     });
-    const sw = h("div", "tools");
+    box.replaceChildren(h("h2", null, "סקירת " + SECNAME[w]), h("p", "meta", "הנתונים כאן מתייחסים לאגף הזה בלבד. את כל האתר אפשר לראות ב״סקירה כללית״."), grid);
+  }
+
+  async function loadSite() {
+    const box = $("aSite");
+    box.replaceChildren(h("p", "muted", "טוענים…"));
+    const d = await adminData(), cm = wingCounts(d, "men"), cw = wingCounts(d, "women");
+    const none = d.profiles.filter((x) => !x.section && !x.is_admin).length;
+    const tb = document.createElement("table");
+    tb.className = "tbl";
+    const mk = (cells, tag) => { const tr = document.createElement("tr"); cells.forEach((v) => { const c = document.createElement(tag); c.textContent = String(v); tr.append(c); }); return tr; };
+    tb.append(mk(["", SECNAME.men, SECNAME.women, "ללא אגף", "סה״כ"], "th"));
+    tb.append(mk(["משתמשים", cm.users, cw.users, none, cm.users + cw.users + none], "td"));
+    tb.append(mk(["חדשים בשבוע האחרון", cm.newWeek, cw.newWeek, "", cm.newWeek + cw.newWeek], "td"));
+    tb.append(mk(["חסומים", cm.blocked, cw.blocked, "", cm.blocked + cw.blocked], "td"));
+    tb.append(mk(["הערות משותפות", cm.notes, cw.notes, "", d.notes.length], "td"));
+    tb.append(mk(["דיווחים פתוחים", cm.reports, cw.reports, "", d.reports.length], "td"));
+    tb.append(mk(["הערות והארות חדשות", cm.contacts, cw.contacts, "", d.contacts.length], "td"));
+    const it = d.items, n = (f) => it.filter(f).length, now = Date.now();
+    const rows = [
+      ["חומר לימוד", n((x) => x.area !== "music")], ["מוזיקה", n((x) => x.area === "music")],
+      ["טיוטות", n((x) => x.status === "draft")], ["מתוזמנים לפרסום", n((x) => x.publish_at && new Date(x.publish_at).getTime() > now)],
+      ["לשני האגפים", n((x) => !x.audience || x.audience === "both")],
+      [SECNAME.men + " בלבד", n((x) => x.audience === "men")], [SECNAME.women + " בלבד", n((x) => x.audience === "women")]
+    ];
+    const list = h("div");
+    rows.forEach(([label, v]) => { const r = h("div", "row"); r.append(h("span", null, label), h("strong", null, String(v))); list.append(r); });
+    box.replaceChildren(h("h2", null, "סקירה כללית של האתר"), h("p", "meta", "כל האתר, בשני האגפים. מנהלות לא נספרות כמשתמשים."), tb, h("h3", "sub", "תכנים (בכל האתר)"), list);
+  }
+
+  function renderWingBar() {
+    const bar = $("wingBar"), sw = h("div", "tools");
+    bar.replaceChildren(h("div", "meta", "האגף שבו את נמצאת:"));
     ["men", "women"].forEach((k) => {
       const b = h("button", "fav", SECNAME[k]);
       b.type = "button";
@@ -1293,22 +1376,18 @@ applyTheme(savedTheme);
         mySection = k;
         $("secBadge").textContent = SECNAME[k];
         refreshUnread();
-        say($("itemMsg"), "עברת ל" + SECNAME[k] + ". עכשיו את רואה את האתר כמשתמשת במדור הזה.", "ok");
-        loadOverview();
+        await loadLibrary();
+        renderWingBar();
+        showTab(curTab);
+        say($("itemMsg"), "עברת ל" + SECNAME[k] + ". הלשוניות מציגות עכשיו רק את מה שקורה באגף הזה.", "ok");
       };
       sw.append(b);
     });
-    box.replaceChildren(
-      h("h2", null, "סקירה"),
-      h("h3", "sub", "המדור שבו את נמצאת"),
-      h("p", "meta", "המעבר מעביר את החשבון שלך למדור שבחרת: את רואה ומתכתבת עם משתמשים של המדור הזה, והם רואים אותך. בזמן שאת במדור אחד, משתמשים במדור השני לא רואים אותך ולא את ההודעות איתך, עד שתחזרי."),
-      sw,
-      h("h3", "sub", "נתונים"),
-      grid
-    );
+    bar.append(sw, h("p", "meta", "הלשוניות מציגות רק את נתוני האגף הזה. ב״סקירה כללית״ אפשר לראות את כל האתר. בזמן שאת באגף אחד, משתמשים באגף השני לא רואים אותך."));
   }
 
   function showTab(t) {
+    curTab = t;
     document.querySelectorAll("#atabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === t)));
     if (t === "aContent") adminArea = "learning";
     if (t === "aMusic") adminArea = "music";
@@ -1319,6 +1398,7 @@ applyTheme(savedTheme);
     if (t !== "aTheme") applyTheme(savedTheme);
     say($("itemMsg"), "");
     if (t === "aOverview") loadOverview();
+    else if (t === "aSite") loadSite();
     else if (t === "aUsers") { loadUsers(); markSeen("users"); }
     else if (t === "aNotes") { loadSharedNotes(); markSeen("notes"); }
     else if (t === "aReports") loadReports();
@@ -1331,6 +1411,7 @@ applyTheme(savedTheme);
 
   function openAdmin() {
     show("adminView");
+    renderWingBar();
     loadAdmin();
     showTab(loadState().atab || "aOverview");
   }
@@ -1338,10 +1419,12 @@ applyTheme(savedTheme);
   async function loadStats() {
     const box = $("statList");
     box.replaceChildren(h("p", "muted", "טוענים…"));
-    const { data, error } = await db.rpc("admin_item_stats");
+    let { data, error } = await db.rpc("admin_item_stats", { sec: mySection }), scoped = !error;
+    if (error) ({ data, error } = await db.rpc("admin_item_stats"));
     if (error) { box.replaceChildren(h("p", "msg error", "לא הצלחנו לטעון: " + error.message)); return; }
     box.replaceChildren();
     if (!data || !data.length) { box.append(h("p", "muted", "עדיין אין תכנים.")); return; }
+    box.append(h("p", "meta", scoped ? "מוצגים נתוני " + SECNAME[mySection] + " בלבד." : "מוצגים נתוני כל האתר (כדי לראות לפי אגף יש להריץ את קוד ה-SQL של הסטטיסטיקות)."));
     data.forEach((r) => {
       const row = h("div", "row");
       row.append(h("span", null, r.title), h("span", "meta", r.readers + " פתחו, " + r.favs + " במועדפים, " + r.learned + " נלמד"));
@@ -1486,9 +1569,11 @@ applyTheme(savedTheme);
     if (error) { box.replaceChildren(h("p", "msg error", "לא הצלחנו לטעון הודעות: " + error.message)); return; }
     box.replaceChildren();
     if (!data.length) { box.append(h("p", "muted", ctFilter === "open" ? "אין הודעות חדשות." : "אין הודעות.")); return; }
-    const { data: ps } = await db.from("profiles").select("id,full_name").in("id", [...new Set(data.map((c) => c.user_id))]);
-    const nm = Object.fromEntries((ps || []).map((x) => [x.id, x.full_name || "משתמש"]));
-    data.forEach((c) => {
+    const { data: ps } = await db.from("profiles").select("id,full_name,section").in("id", [...new Set(data.map((c) => c.user_id))]);
+    const nm = Object.fromEntries((ps || []).map((x) => [x.id, x.full_name || "משתמש"])), sc = Object.fromEntries((ps || []).map((x) => [x.id, x.section]));
+    const wingMsgs = data.filter((c) => sc[c.user_id] === mySection);
+    if (!wingMsgs.length) { box.append(h("p", "muted", ctFilter === "open" ? "אין הודעות חדשות באגף הזה." : "אין הודעות באגף הזה.")); return; }
+    wingMsgs.forEach((c) => {
       const el = h("div", "note"), t = h("div", null, nm[c.user_id] + " | " + c.topic);
       t.append(h("span", "badge" + (c.status === "answered" ? " ok" : ""), CT_STATUS[c.status] || c.status));
       el.append(t, h("p", null, c.body), h("div", "meta", dual(c.created_at)));
@@ -1641,7 +1726,7 @@ applyTheme(savedTheme);
     if (error) ({ data, error } = await db.from("items").select("id,title,file_path,files,status,publish_at,audience,category_id,created_at").order("created_at", { ascending: false }));
     box.replaceChildren();
     if (error) { box.append(h("p", "msg error", "לא הצלחנו לטעון את הרשימה.")); return; }
-    data = data.filter((it) => (it.area || "learning") === adminArea);
+    data = data.filter((it) => (it.area || "learning") === adminArea && audOK(it));
     if (!data.length) { box.append(h("p", "muted", "עדיין לא נוספו תכנים.")); return; }
     data.forEach((it) => {
       const row = h("div", "row");
@@ -2094,7 +2179,7 @@ applyTheme(savedTheme);
     const on = e.target.checked;
     const { error } = await db.from("profiles").update({ favs_public: on }).eq("id", me.id);
     if (error) { e.target.checked = !on; say($("shareMsg"), "העדכון נכשל. נסו שוב.", "error"); return; }
-    say($("shareMsg"), on ? "התכנים שסימנת לשיתוף גלויים עכשיו לכל המשתמשים במדור שלך." : "התכנים שלך כבר לא גלויים לכולם.", "ok");
+    say($("shareMsg"), on ? "התכנים שסימנת לשיתוף גלויים עכשיו לכל המשתמשים באגף שלך." : "התכנים שלך כבר לא גלויים לכולם.", "ok");
   };
 
   $("userSearchForm").addEventListener("submit", async (e) => {
@@ -2103,7 +2188,7 @@ applyTheme(savedTheme);
     const box = $("userResults");
     box.replaceChildren();
     if (q.length < 2) { box.append(h("p", "muted", "כדאי להקליד לפחות שני תווים מהשם.")); return; }
-    const { data, error } = await db.from("profiles").select("id,full_name,bio").ilike("full_name", "%" + q + "%").neq("id", me.id).limit(10);
+    const { data, error } = await db.from("profiles").select("id,full_name,bio").eq("section", mySection).ilike("full_name", "%" + q + "%").neq("id", me.id).limit(10);
     if (error) { box.append(h("p", "msg error", "החיפוש נכשל.")); return; }
     if (!data.length) { box.append(h("p", "muted", "לא נמצאו משתמשים בשם הזה.")); return; }
     data.forEach((u) => box.append(personRow(u, "שיתוף", () => addShare(u.id))));
@@ -2140,7 +2225,7 @@ applyTheme(savedTheme);
     box.replaceChildren();
     const [direct, pub] = await Promise.all([
       db.from("favorite_shares").select("owner_id").eq("viewer_id", me.id),
-      db.from("profiles").select("id,full_name,bio").eq("favs_public", true).neq("id", me.id).limit(50)
+      db.from("profiles").select("id,full_name,bio").eq("section", mySection).eq("favs_public", true).neq("id", me.id).limit(50)
     ]);
     if (direct.error || pub.error) { box.append(h("p", "msg error", "לא הצלחנו לטעון את הרשימה.")); return; }
     const people = pub.data.slice();
@@ -2208,7 +2293,7 @@ applyTheme(savedTheme);
     const t = $("msgQ").value.trim().replace(/[%_*,()]/g, ""), box = $("msgResults");
     box.replaceChildren();
     if (t.length < 2) { box.append(h("p", "muted", "כדאי להקליד לפחות שני תווים מהשם.")); return; }
-    const { data, error } = await db.from("profiles").select("id,full_name,bio").ilike("full_name", "%" + t + "%").neq("id", me.id).limit(10);
+    const { data, error } = await db.from("profiles").select("id,full_name,bio").eq("section", mySection).ilike("full_name", "%" + t + "%").neq("id", me.id).limit(10);
     if (error) { box.append(h("p", "msg error", "החיפוש נכשל.")); return; }
     if (!data.length) { box.append(h("p", "muted", "לא נמצאו משתמשים בשם הזה.")); return; }
     data.forEach((u) => box.append(personRow(u, "פתיחת שיחה", () => openThread(u))));
